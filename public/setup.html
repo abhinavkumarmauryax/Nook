@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local Watch Together — Server Setup</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="setup-page">
+  <header>
+    <h1>🎬 Local Watch Together</h1>
+    <p>Host a synchronized video + chat session on your local network</p>
+  </header>
+
+  <section class="card">
+    <h2>Streaming server</h2>
+    <div class="row">
+      <label for="portInput">Port</label>
+      <input type="number" id="portInput" min="1024" max="65535" value="3001" placeholder="3001">
+    </div>
+    <div class="row btn-row">
+      <button id="startBtn" class="btn btn-primary">Start Server</button>
+      <button id="stopBtn" class="btn btn-danger" disabled>Stop Server</button>
+    </div>
+    <div class="row">
+      <span class="status" id="status">Stopped</span>
+    </div>
+    <div id="error" class="error"></div>
+  </section>
+
+  <section class="card" id="networkInfo" style="display:none">
+    <h2>Joining information</h2>
+    <div class="row">
+      <label>Session URL (share this with participants)</label>
+      <div class="url-row">
+        <span id="urlDisplay">—</span>
+        <button id="copyUrlBtn" class="btn btn-small">Copy</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Local IP addresses</label>
+      <span id="ipsDisplay">—</span>
+    </div>
+    <div class="row">
+      <label>Binding</label>
+      <span style="color:var(--muted)">0.0.0.0 — all network interfaces</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Video</h2>
+    <div id="videoInfo" style="display:none">
+      <strong>Selected:</strong> <span id="videoName"></span>
+      &nbsp;<span id="videoSize"></span>
+    </div>
+    <p class="empty">After opening the Watch Session, the host can choose a video with the <strong>📁 Select Video</strong> button in the player. Videos stay on this computer — nothing is uploaded to the internet.</p>
+  </section>
+
+  <section class="card">
+    <h2>Participants</h2>
+    <div class="row">
+      <span id="participantCount">0</span> connected
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Host session</h2>
+    <p>Open the watch interface below to join as the host. Other devices open the Session URL above, enter a username, and join.</p>
+    <button id="openWatchBtn" class="btn btn-primary" disabled>Open Watch Session (Host)</button>
+    <p class="empty">Tip: use a phone on the same Wi-Fi to test joining.</p>
+  </section>
+</div>
+<script src="/js/setup.js"></script>
+</body>
+</html>

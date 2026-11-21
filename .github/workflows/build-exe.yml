@@ -1,0 +1,33 @@
+name: Build portable exe
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build watch-together.exe
+        run: npm run build
+
+      - name: Upload exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-together
+          path: watch-together.exe
+          if-no-files-found: error

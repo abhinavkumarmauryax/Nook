@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Join Watch Session</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="join-page">
+  <div class="card">
+    <h1>🎬 Join Session</h1>
+    <p>Enter a username to join the watch party</p>
+    <div class="form-group">
+      <label for="usernameInput">Username</label>
+      <input type="text" id="usernameInput" maxlength="32" placeholder="e.g. Alex" autocomplete="off">
+    </div>
+    <div id="error" class="error"></div>
+    <button id="joinBtn" class="btn btn-primary" style="width:100%">Join</button>
+  </div>
+</div>
+<script src="/js/socket.io.js"></script>
+<script src="/js/join.js"></script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watch Together</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="header-left">
+      <h1 id="videoTitle">Watch Together</h1>
+      <span class="badge" id="hostBadge" style="display:none">HOST</span>
+    </div>
+    <div class="header-right">
+      <span id="connStatus">● Connected</span>
+      <button id="leaveBtn" class="btn btn-danger">Leave</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="video-section">
+      <div class="video-card">
+        <div class="video-wrapper">
+          <video id="video" playsinline preload="metadata"></video>
+          <div id="loadingOverlay" class="overlay">
+            <div class="spinner"></div><span>Loading video…</span>
+          </div>
+          <div id="errorOverlay" class="overlay error" style="display:none">
+            <div style="text-align:center">
+              <span id="errorMsg">Unable to play video</span>
+              <div id="errorDiagRow" style="display:none; margin-top:10px; font-size:11px; color:var(--muted); text-align:left; max-width:400px; margin:10px auto; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px; word-break:break-all;"><div id="errorDiag"></div></div>
+              <button id="retryBtn" class="btn btn-primary" style="margin-top:12px; display:none">Retry</button>
+            </div>
+          </div>
+          <div class="controls">
+            <button id="playPauseBtn" class="icon-btn" title="Play/Pause">▶</button>
+            <button id="muteBtn" class="icon-btn" title="Mute/unmute">🔊</button>
+            <input id="volumeRange" type="range" min="0" max="1" step="0.1" value="1">
+            <input id="seekRange" type="range" min="0" max="100" value="0" disabled>
+            <span id="timeDisplay">0:00 / 0:00</span>
+            <button id="fullscreenBtn" class="icon-btn" title="Fullscreen">⛶</button>
+          </div>
+        </div>
+        <div class="video-footer">
+          <button id="selectVideoBtn" class="btn" style="display:none">📁 Select Video</button>
+          <input id="hostFileInput" type="file" accept="video/*" style="display:none">
+          <button id="testVideoBtn" class="btn btn-small" style="margin-left:auto">🧪 Test Video</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-section">
+      <div class="chat-card">
+        <div class="chat-header">
+          <h2>💬 <span id="chatLabel">Chat</span></h2>
+          <span id="roomInfo">Online: <span id="onlineCount">0</span></span>
+        </div>
+        <div id="messages" class="messages"></div>
+        <div class="chat-footer">
+          <input id="messageInput" type="text" placeholder="Type a message…" maxlength="500">
+          <button id="sendBtn" class="btn btn-primary">Send</button>
+        </div>
+        <div class="users-list">
+          <button id="toggleUsersBtn" class="users-toggle" aria-expanded="true">Participants ▾</button>
+          <ul id="users"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script src="/js/socket.io.js"></script>
+<script src="/js/watch.js"></script>
+</body>
+</html>

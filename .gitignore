@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output (download from Releases, or run `npm run build`)
+watch-together.exe
+dist/
+*.exe
+
+# Runtime uploads (stored in the OS temp folder at runtime)
+.temp/
+local-watch-together/
+
+# Logs
+npm-debug.log*
+*.log
+logs/
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
