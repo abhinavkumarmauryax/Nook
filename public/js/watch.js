@@ -513,6 +513,7 @@ video.addEventListener('loadedmetadata', () => {
   video.controls = false;
   showLoading(false);
   if (pendingTime !== null) { try { video.currentTime = pendingTime; } catch {} pendingTime = null; }
+  updateRangeFills();
   enforcePlayback();
   if (canControlPlayback() && isFinite(video.duration)) socket.emit('video:duration', { duration: video.duration });
 });
@@ -528,12 +529,29 @@ video.addEventListener('error', () => {
   showVideoError(`Unable to play video [${code}]`, details);
 });
 
+let lastSeekFill = -1;
+let lastVolumeFill = -1;
+function updateRangeFills() {
+  const vol = Math.max(0, Math.min(100, (Number(volumeRange.value) || 0) * 100));
+  if (Math.abs(vol - lastVolumeFill) > 0.5) {
+    volumeRange.style.setProperty('--fill', vol + '%');
+    lastVolumeFill = vol;
+  }
+  const d = video.duration;
+  const pct = isFinite(d) && d > 0 ? Math.max(0, Math.min(100, (video.currentTime / d) * 100)) : 0;
+  if (Math.abs(pct - lastSeekFill) > 0.2) {
+    seekRange.style.setProperty('--fill', pct + '%');
+    lastSeekFill = pct;
+  }
+}
+
 function tick() {
   if (!seeking && video.readyState > 0) {
     seekRange.max = video.duration || 100;
     seekRange.value = video.currentTime || 0;
     timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
   }
+  updateRangeFills();
   raf = requestAnimationFrame(tick);
 }
 
@@ -613,13 +631,14 @@ muteBtn.addEventListener('click', () => {
   video.muted = !video.muted;
   setIcon(muteBtn, video.muted ? 'volumeOff' : 'volume');
 });
-volumeRange.addEventListener('input', () => { video.volume = volumeRange.value; });
+volumeRange.addEventListener('input', () => { video.volume = volumeRange.value; updateRangeFills(); });
 seekRange.addEventListener('mousedown', () => { seeking = true; });
 seekRange.addEventListener('mouseup', () => { seeking = false; });
 seekRange.addEventListener('touchstart', () => { seeking = true; });
 seekRange.addEventListener('touchend', () => { seeking = false; });
 seekRange.addEventListener('input', () => {
   timeDisplay.textContent = `${formatTime(seekRange.valueAsNumber)} / ${formatTime(video.duration)}`;
+  seekRange.style.setProperty('--fill', (seekRange.valueAsNumber / (video.duration || 100) * 100) + '%');
 });
 seekRange.addEventListener('change', () => {
   if (!canControlPlayback()) {
@@ -1128,6 +1147,7 @@ document.getElementById('chatPopoutBtn').addEventListener('click', () => {
 // init
 if (window.applyIcons) applyIcons();
 setControlsEnabled();
+updateRangeFills();
 scheduleControlsHide(); // start the idle countdown on load
 if (!video.canPlayType('video/mp4') && !video.canPlayType('video/webm')) {
   showToast('Warning: this browser may not support common video formats');

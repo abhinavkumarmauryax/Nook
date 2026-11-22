@@ -1,5 +1,5 @@
 Name:           nook
-Version:        2.5.0
+Version:        2.7.0
 Release:        1%{?dist}
 Summary:        Self-hosted watch-together rooms with synchronized video and chat
 
@@ -28,5 +28,5 @@ install -m 0644 %{SOURCE2} %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/no
 %{_datadir}/icons/hicolor/256x256/apps/nook.png
 
 %changelog
-* Sun Nov 22 2026 Abhi <noreply@localhost> - 2.5.0-1
-- Nook 2.5.0 release
+* Sun Nov 22 2026 Abhi <noreply@localhost> - 2.7.0-1
+- Nook 2.7.0 release

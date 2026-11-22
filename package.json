@@ -1,6 +1,6 @@
 {
   "name": "nook",
-  "version": "2.5.0",
+  "version": "2.7.0",
   "description": "Self-hosted local-network Nook app: synchronized video playback and real-time chat. Free, no cloud, no accounts.",
   "main": "server.js",
   "bin": "server.js",

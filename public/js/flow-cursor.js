@@ -85,7 +85,7 @@
       // Never leave the user without a cursor.
       document.documentElement.classList.remove('cursor-rotating');
     }
+    requestAnimationFrame(frame);
   }
-  // A timer keeps easing even where animation frames are throttled.
-  setInterval(frame, 16);
+  requestAnimationFrame(frame);
 })();
