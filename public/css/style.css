@@ -48,6 +48,27 @@ body {
 button { cursor: var(--cursor); font: inherit; border: none; background: none; color: inherit; }
 a { cursor: var(--cursor); }
 html.cursor-hidden, html.cursor-hidden * { cursor: none !important; }
+
+/* Direction-aware flow cursor (fine pointers only) */
+@media (pointer: fine) {
+  html, body, button, a, input, select, textarea, .resize-handle { cursor: none !important; }
+}
+#nookCursor {
+  position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+  opacity: 0; transition: opacity .18s;
+}
+#nookCursor .cursor-arrow, #nookCursor .cursor-wave {
+  position: fixed; left: 0; top: 0; width: 26px; height: 26px; display: block;
+  will-change: transform;
+  background-repeat: no-repeat; background-position: center; background-size: contain;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath d='M5 3 L19 12 L12 13 L9 20 Z' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linejoin='round'/%3E%3Cpath d='M19 12 L12 13' stroke='%23ffffff' stroke-width='1'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 2px rgba(0,0,0,.9));
+}
+#nookCursor .cursor-wave { opacity: .12; }
+#nookCursor .cursor-wave[data-lag="2"] { opacity: .08; }
+#nookCursor .cursor-wave[data-lag="3"] { opacity: .05; }
+html.cursor-hidden #nookCursor { opacity: 0 !important; }
+@media (pointer: coarse) { #nookCursor { display: none; } }
 button:disabled { cursor: not-allowed; opacity: .5; }
 a { color: var(--orange); text-decoration: none; }
 a:hover { color: var(--orange-bright); }
@@ -431,26 +452,51 @@ body.is-resizing { user-select: none; cursor: col-resize; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1000px) {
-  .rail { width: 56px; }
+  .rail { width: 58px; margin-left: 8px; }
   .chat-section { flex-basis: 320px; width: 320px; }
+  .participants-popup { left: 66px; }
 }
 @media (max-width: 820px) {
   .main { flex-direction: column; overflow-y: auto; }
   .resize-handle { display: none; }
-  .video-section { min-width: 0; min-height: 56vh; flex: none; padding: 12px; }
-  .chat-section { flex: none; width: 100%; border-left: none; border-top: 1px solid var(--border); min-height: 46vh; }
+  .video-section { min-width: 0; min-height: 52vh; flex: none; padding: 10px; }
+  .chat-section { flex: none; width: 100%; border-left: none; border-top: 1px solid var(--border); min-height: 44vh; }
   .main.chat-collapsed .chat-section { min-height: 0; max-height: 0; }
-  .header-left h1 { max-width: 38vw; }
+  .participants-popup {
+    left: 62px; top: 62px; width: min(290px, calc(100vw - 74px)); max-height: 54vh;
+  }
+  .chat-footer { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .rail-btn { width: 42px; height: 42px; border-radius: 12px; }
 }
 @media (max-width: 560px) {
   #connStatus { display: none; }
   .video-footer { gap: 6px; }
-  .video-footer .btn { flex: 1; min-width: 120px; }
-  #volumeRange { width: 56px; }
+  .video-footer .btn { flex: 1 1 auto; min-width: 110px; font-size: 12px; padding: 8px 10px; }
+  #volumeRange { width: 52px; }
   .quick-actions { grid-template-columns: 1fr; }
   .setup-page { padding: 30px 14px 48px; }
-  .app-header { padding: 0 12px; }
+  .setup-hero h1 { font-size: 28px; }
+  .card { padding: 18px; }
+  .join-page { margin: 4vh auto; }
+  .controls { gap: 6px; padding: 16px 8px 10px; }
+  .time-display, #timeDisplay { min-width: 68px; font-size: 11px; }
+  .user-action { padding: 5px 9px; }
+  .menu-btn { min-width: 30px; min-height: 30px; }
+  .popup-close { width: 32px; height: 32px; }
+}
+/* Touch devices: comfortable target sizes and no hover-only affordances */
+@media (pointer: coarse) {
+  .icon-btn { width: 42px; height: 42px; }
+  .btn { min-height: 40px; }
+  .rail-btn { width: 46px; height: 46px; }
+  .browse-item, .source-choice { padding: 14px; }
+  .message { padding: 9px 8px; }
+  .msg-actions { display: none !important; }
+  input, textarea { font-size: 16px; } /* prevents iOS zoom-on-focus */
+  * { -webkit-tap-highlight-color: transparent; }
+  .video-footer .btn { touch-action: manipulation; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  #nookCursor { display: none; }
 }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="#000000">
+    <LinearLayout android:orientation="horizontal"
+        android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="12dp">
+        <EditText android:id="@+id/hostInput" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:hint="@string/host_hint"
+            android:inputType="textUri" android:textColor="#FFFFFF" android:textColorHint="#9A9AA6"
+            android:background="#1A1A20" android:padding="12dp" />
+        <Button android:id="@+id/connectBtn" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="@string/connect" />
+    </LinearLayout>
+    <WebView android:id="@+id/webview" android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" />
+</LinearLayout>

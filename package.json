@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "build": "node scripts/build.js"
+    "build": "node scripts/build.js",
+    "build:linux": "npx --yes pkg@5.8.1 . --output nook-linux-x64 --targets node18-linux-x64",
+    "build:deb": "node scripts/build-deb.js"
   },
   "dependencies": {
     "express": "^4.19.2",

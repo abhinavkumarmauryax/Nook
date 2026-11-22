@@ -1,0 +1,19 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.nook.client'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.nook.client'
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName '1.2.0'
+    }
+    buildTypes { release { minifyEnabled false } }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+}

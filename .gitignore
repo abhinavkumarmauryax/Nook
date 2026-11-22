@@ -5,6 +5,9 @@ node_modules/
 watch-together.exe
 dist/
 *.exe
+*.deb
+*.rpm
+nook-linux-x64
 
 # Runtime uploads (stored in the OS temp folder at runtime)
 .temp/

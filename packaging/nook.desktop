@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Nook
+Comment=Self-hosted watch-together rooms with synchronized video and chat
+Exec=nook
+Icon=nook
+Type=Application
+Terminal=true
+Categories=Network;Chat;Video;
+Keywords=watch-party;chat;streaming;
