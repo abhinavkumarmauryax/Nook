@@ -18,7 +18,7 @@
   --brand: linear-gradient(115deg, var(--orange) 0%, var(--orange-bright) 55%, var(--red) 100%);
   --glass: rgba(10,10,13,.72);
   --glass-strong: rgba(17,17,21,.82);
-  --cursor: url('/assets/cursor.svg') 2 2, auto;
+  --cursor: url('/assets/cursor.svg') 1 1, auto;
   --success: #3ddc97;
   --danger: #D20A2E;
   --ice: #E7F1FD;
