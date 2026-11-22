@@ -313,6 +313,27 @@ body.is-resizing { user-select: none; cursor: col-resize; }
 .context-menu button.danger { color: #ff7a8a; }
 #messageInput:disabled + .emoji-btn { opacity: .5; }
 
+/* ---------- participants popup ---------- */
+.participants-popup {
+  position: fixed; left: 78px; top: 76px; z-index: 110; width: 290px; max-height: 62vh;
+  display: flex; flex-direction: column; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  animation: rise .18s var(--ease); overflow: hidden;
+}
+.popup-head {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.popup-head h3 { font-size: 13px; font-weight: 650; }
+.popup-head h3 span { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.popup-close {
+  width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center;
+  font-size: 12px; color: var(--muted);
+}
+.popup-close:hover { background: var(--surface-3); color: var(--text); }
+.participants-popup #users { overflow-y: auto; padding: 6px; }
+.participants-popup #users li { padding: 8px 9px; }
+
 /* ---------- modals / toast ---------- */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;

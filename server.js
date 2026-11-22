@@ -373,6 +373,12 @@ function startSessionServer(port) {
       downloadsDir: path.join(HOME_DIR, 'Downloads'),
     }));
 
+    app.post('/api/session/stop', (req, res) => {
+      if (!isAuthorizedOwner(req)) return res.status(401).json({ error: 'Owner authorization required' });
+      res.json({ ok: true });
+      setTimeout(stopSession, 150);
+    });
+
     // Share a video already on the host's disk - no upload/copy at all.
     app.post('/api/video/local', (req, res) => {
       if (!isAuthorizedOwner(req)) return res.status(401).json({ error: 'Owner authorization required' });

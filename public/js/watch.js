@@ -40,13 +40,11 @@ const sendBtn = document.getElementById('sendBtn');
 const usersEl = document.getElementById('users');
 const onlineCount = document.getElementById('onlineCount');
 const toastEl = document.getElementById('toast');
-const leaveBtn = document.getElementById('leaveBtn');
 const toggleChatBtn = document.getElementById('toggleChatBtn');
 const mediaSourceBtn = document.getElementById('mediaSourceBtn');
 const mediaSourceModal = document.getElementById('mediaSourceModal');
 const emojiBtn = document.getElementById('emojiBtn');
 const emojiPicker = document.getElementById('emojiPicker');
-const viewerInfo = document.getElementById('viewerInfo');
 
 let myIsHost = false;
 let myRole = 'member';
@@ -215,6 +213,10 @@ function applyMyPermissions(data) {
   adminBadge.style.display = myRole === 'admin' ? 'inline-block' : 'none';
   setControlsEnabled();
   mediaSourceBtn.style.display = myIsHost ? 'inline-flex' : 'none';
+  const railLeaveIcon = document.getElementById('railLeaveIcon');
+  const railLeaveTip = document.getElementById('railLeaveTip');
+  if (railLeaveIcon) railLeaveIcon.textContent = myIsHost ? '⏻' : '↩';
+  if (railLeaveTip) railLeaveTip.textContent = myIsHost ? 'Stop server' : 'Leave session';
   setMutedState(!!data.muted);
   renderUsers(lastUserList);
   enforcePlayback();
@@ -229,7 +231,8 @@ function renderUsers(list) {
   lastUserList = list || [];
   usersEl.innerHTML = '';
   onlineCount.textContent = lastUserList.length;
-  if (viewerInfo) viewerInfo.textContent = lastUserList.length + ' watching';
+  const popupCount = document.getElementById('popupCount');
+  if (popupCount) popupCount.textContent = lastUserList.length;
   lastUserList.forEach((u) => {
     const li = document.createElement('li');
     li.className = 'role-' + u.role;
@@ -779,9 +782,7 @@ document.getElementById('mediaUrlBtn').addEventListener('click', () => {
 });
 
 // Workspace rail
-document.getElementById('railChat').addEventListener('click', () => openPopout());
-document.getElementById('railSetup').addEventListener('click', () => window.open('http://localhost:3000', '_blank'));
-document.getElementById('railLeave').addEventListener('click', () => leaveBtn.click());
+document.getElementById('railChatToggle').addEventListener('click', () => toggleChatBtn.click());
 document.getElementById('railWatch').addEventListener('click', () => {
   if (mainLayout.classList.contains('chat-collapsed')) toggleChatBtn.click();
 });
@@ -883,22 +884,37 @@ window.addEventListener('pointerup', () => {
   if (w >= CHAT_MIN && w <= CHAT_MAX) localStorage.setItem('nook_chat_width', String(w));
 });
 
-function openPopout() {
-  if (!mySessionToken) { showToast('Reconnecting — try again in a moment'); return; }
-  const url = `${location.origin}/chat#${encodeURIComponent(mySessionToken)}`;
-  window.open(url, 'nook_chat', 'width=430,height=760');
-}
-document.getElementById('popoutBtn').addEventListener('click', openPopout);
-document.getElementById('popoutBtnTop').addEventListener('click', openPopout);
+// Participants popup (the participant list lives here, not under the chat) --
+const participantsPopup = document.getElementById('participantsPopup');
+document.getElementById('railParticipants').addEventListener('click', () => {
+  participantsPopup.style.display = participantsPopup.style.display === 'none' ? 'flex' : 'none';
+});
+document.getElementById('closeParticipants').addEventListener('click', () => {
+  participantsPopup.style.display = 'none';
+});
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#participantsPopup') || e.target.closest('#railParticipants')) return;
+  if (participantsPopup.style.display !== 'none') participantsPopup.style.display = 'none';
+});
 
-// Participants toggle ------------------------------------------------------
-const toggleUsersBtn = document.getElementById('toggleUsersBtn');
-toggleUsersBtn.addEventListener('click', () => {
-  const list = document.getElementById('users');
-  const show = list.style.display === 'none';
-  list.style.display = show ? '' : 'none';
-  toggleUsersBtn.setAttribute('aria-expanded', String(show));
-  toggleUsersBtn.textContent = show ? 'Participants ▾' : 'Participants ▸';
+// Leave / stop server ------------------------------------------------------
+const railLeave = document.getElementById('railLeave');
+railLeave.addEventListener('click', async () => {
+  if (myIsHost) {
+    const ok = await AppModal.confirm({
+      title: 'Stop server',
+      message: 'Stop the Nook server? Everyone in the room will be disconnected.',
+      confirmText: 'Stop server', danger: true,
+    });
+    if (!ok) return;
+    try {
+      await fetch('/api/session/stop', { method: 'POST', headers: ownerHeaders() });
+      location.href = 'http://localhost:3000';
+    } catch { showToast('Could not stop the server'); }
+    return;
+  }
+  socket.disconnect();
+  location.href = '/join';
 });
 
 // Retry --------------------------------------------------------------------

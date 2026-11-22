@@ -12,11 +12,11 @@
   <nav class="rail" aria-label="Nook navigation">
     <img class="brand-logo rail-logo" src="/assets/nook-logo.svg" alt="Nook">
     <div class="rail-divider"></div>
-    <button class="rail-btn active" id="railWatch" title="Watch">▶<span class="rail-tip">Watch room</span></button>
-    <button class="rail-btn" id="railChat" title="Pop out chat">💬<span class="rail-tip">Pop out chat</span></button>
-    <button class="rail-btn" id="railSetup" title="Hosting setup">⚙<span class="rail-tip">Hosting setup</span></button>
+    <button class="rail-btn active" id="railWatch" title="Watch room">▶<span class="rail-tip">Watch room</span></button>
+    <button class="rail-btn" id="railChatToggle" title="Show/hide chat">💬<span class="rail-tip">Show / hide chat</span></button>
+    <button class="rail-btn" id="railParticipants" title="Show participants">👥<span class="rail-tip">Participants</span></button>
     <div class="rail-spacer"></div>
-    <button class="rail-btn" id="railLeave" title="Leave session">↩<span class="rail-tip">Leave session</span></button>
+    <button class="rail-btn" id="railLeave" title="Leave session"><span id="railLeaveIcon">↩</span><span class="rail-tip" id="railLeaveTip">Leave session</span></button>
   </nav>
 
   <div class="app-main">
@@ -25,12 +25,9 @@
         <h1 id="videoTitle">Nook</h1>
         <span class="badge" id="hostBadge" style="display:none">OWNER</span>
         <span class="badge badge-admin" id="adminBadge" style="display:none">ADMIN</span>
-        <span class="header-meta" id="viewerInfo">Watch room</span>
       </div>
       <div class="header-right">
         <span id="connStatus">● Connected</span>
-        <button id="popoutBtnTop" class="btn btn-small" title="Open chat in a new tab">💬 Pop Out</button>
-        <button id="leaveBtn" class="btn btn-danger">Leave</button>
       </div>
     </header>
 
@@ -67,7 +64,6 @@
             <input id="hostFileInput" type="file" accept="video/*" style="display:none">
             <span class="spacer"></span>
             <button id="toggleChatBtn" class="btn btn-small" title="Show/hide chat">💬 Hide Chat</button>
-            <button id="popoutBtn" class="btn btn-small" title="Open chat in a new tab">↗ Pop Out Chat</button>
           </div>
         </div>
       </div>
@@ -89,14 +85,18 @@
             </div>
             <button id="sendBtn" class="btn btn-primary">Send</button>
           </div>
-          <div class="users-list">
-            <button id="toggleUsersBtn" class="users-toggle" aria-expanded="true">Participants ▾</button>
-            <ul id="users"></ul>
-          </div>
         </div>
       </div>
     </div>
   </div>
+</div>
+
+<div id="participantsPopup" class="participants-popup" style="display:none">
+  <div class="popup-head">
+    <h3>Participants <span id="popupCount">0</span></h3>
+    <button id="closeParticipants" class="popup-close" title="Close">✕</button>
+  </div>
+  <ul id="users"></ul>
 </div>
 
 <div id="mediaSourceModal" class="modal-overlay" style="display:none">
