@@ -238,9 +238,9 @@ function setVideoSrc(src, key, force = false) {
   loadTimeout = setTimeout(() => {
     if (video.networkState === video.NETWORK_LOADING && video.readyState === 0) {
       showLoading(false);
-      showVideoError('Video is taking too long to load. Check the source and try again.');
+      showVideoError('Still loading. Large files — especially ones with metadata at the end — can take a minute. Please wait or click Retry.');
     }
-  }, 30000);
+  }, 60000);
 }
 function applyVideo(v) {
   currentVideoDescriptor = v || null;
@@ -494,16 +494,23 @@ hostFileInput.addEventListener('change', () => {
   if (!file) return;
   if (file.size > 2 * 1024 * 1024 * 1024) return showToast('File too large (max 2 GB)');
   const xhr = new XMLHttpRequest();
-  xhr.open('POST', '/api/video/upload', true);
-  xhr.setRequestHeader('X-Host-Token', pendingToken || '');
-  if (myOwnerToken) xhr.setRequestHeader('X-Owner-Token', myOwnerToken);
-  xhr.setRequestHeader('X-File-Name', file.name);
+  try {
+    xhr.open('POST', '/api/video/upload', true);
+    xhr.setRequestHeader('X-Host-Token', pendingToken || '');
+    if (myOwnerToken) xhr.setRequestHeader('X-Owner-Token', myOwnerToken);
+    // HTTP headers must be ASCII; encode so names with symbols/Unicode work.
+    xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
+  } catch (err) {
+    return showToast('Could not start upload: ' + (err && err.message ? err.message : 'invalid file name'));
+  }
+  showToast('Uploading ' + file.name + ' — this can take a while for large files');
   xhr.onload = () => {
     hostFileInput.value = '';
     if (xhr.status >= 200 && xhr.status < 300) showToast('Video selected for everyone');
     else { try { showToast(JSON.parse(xhr.responseText).error || 'Upload failed'); } catch { showToast('Upload failed'); } }
   };
   xhr.onerror = () => showToast('Upload failed (network error)');
+  xhr.onabort = () => showToast('Upload cancelled');
   xhr.send(file);
 });
 

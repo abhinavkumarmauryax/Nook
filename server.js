@@ -340,9 +340,11 @@ function startSessionServer(port) {
         (hostToken && suppliedHost === hostToken && !ownershipTransferred) ||
         (currentOwner && suppliedOwner && suppliedOwner === currentOwner.ownerToken);
       if (!authorized) return res.status(401).json({ error: 'Owner authorization required' });
-      const rawName = req.headers['x-file-name'];
-      if (!rawName) return res.status(400).json({ error: 'File name missing' });
-      const name = path.basename(String(rawName)).replace(/[^a-zA-Z0-9._\-]/g, '_') || 'video.bin';
+      const rawHeader = req.headers['x-file-name'];
+      if (!rawHeader) return res.status(400).json({ error: 'File name missing' });
+      let decodedName = String(rawHeader);
+      try { decodedName = decodeURIComponent(decodedName); } catch {}
+      const name = path.basename(decodedName).replace(/[^a-zA-Z0-9._\-]/g, '_') || 'video.bin';
       const ext = path.extname(name).toLowerCase();
       if (!ALLOWED_VIDEO_EXTS.includes(ext)) {
         return res.status(400).json({ error: 'Unsupported video format. Use MP4, WebM, OGG, or MOV.' });
