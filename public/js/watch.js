@@ -249,7 +249,7 @@ function applyVideo(v) {
     showNoVideo(myIsHost
       ? 'No video selected. Use 📁 Select Video or 🔗 Video URL to choose something to watch.'
       : 'The host has not selected a video yet. Sit tight — it will appear here automatically.');
-    setTitle('Nook');
+    setTitle('');
     return;
   }
   destroyHls();
