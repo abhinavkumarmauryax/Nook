@@ -1,13 +1,13 @@
 {
-  "name": "local-watch-together",
+  "name": "nook",
   "version": "1.0.0",
-  "description": "Self-hosted local-network Watch Together app: synchronized video playback and real-time chat. Free, no cloud, no accounts.",
+  "description": "Self-hosted local-network Nook app: synchronized video playback and real-time chat. Free, no cloud, no accounts.",
   "main": "server.js",
   "bin": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "build": "npx --yes pkg@5.8.1 . --output watch-together.exe --targets node18-win-x64"
+    "build": "npx --yes pkg@5.8.1 . --output nook.exe --targets node18-win-x64"
   },
   "dependencies": {
     "express": "^4.19.2",
@@ -27,7 +27,7 @@
     "node": ">=18.0.0"
   },
   "keywords": [
-    "watch-together",
+    "nook",
     "sync-video",
     "socket.io",
     "express",

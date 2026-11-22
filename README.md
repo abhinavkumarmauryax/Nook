@@ -1,4 +1,6 @@
-# Local Watch Together
+# Nook
+
+<p align="center"><img src="public/assets/nook-logo.png" alt="Nook logo" width="140"></p>
 
 A free, self-hosted watch-party app. One person hosts a server on their computer, picks a local video file or shares a direct video URL, and everyone else joins from a browser to watch in sync and chat in real time.
 
@@ -33,7 +35,7 @@ No paid subscription, no cloud server, no database, no third-party streaming ser
 ## Project structure
 
 ```
-local-watch-together/
+nook/
 ├── server.js                 # Bootstrap UI + session server + permissions
 ├── package.json
 ├── package-lock.json
@@ -52,7 +54,7 @@ local-watch-together/
 
 ## Quick start (portable exe — Windows x64)
 
-1. Download `watch-together.exe` from the repository **Releases** page.
+1. Download `nook.exe` from the repository **Releases** page.
 2. Double-click it. Leave the console window open.
 3. Open <http://localhost:3000>.
 4. Start the server on a port (default `3001`).
@@ -66,7 +68,7 @@ local-watch-together/
 
 ```bash
 git clone https://github.com/abhinavkumarmauryax/WatchTogetherParty.git
-cd WatchTogetherParty
+cd WatchTogetherParty   # the repository folder keeps its original name
 npm install
 npm start
 ```

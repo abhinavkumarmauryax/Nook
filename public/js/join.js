@@ -1,10 +1,10 @@
-/* WatchTogetherParty - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
+/* Nook - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
 
 const usernameInput = document.getElementById('usernameInput');
 const joinBtn = document.getElementById('joinBtn');
 const errorEl = document.getElementById('error');
 
-const stored = sessionStorage.getItem('wt_username');
+const stored = sessionStorage.getItem('nook_username');
 if (stored) usernameInput.value = stored;
 
 function showError(msg) {
@@ -14,9 +14,9 @@ function showError(msg) {
 
 // If the watch page could not join (e.g. duplicate username), it sends us back
 // here with the reason so the user can pick another name.
-const joinError = sessionStorage.getItem('wt_join_error');
+const joinError = sessionStorage.getItem('nook_join_error');
 if (joinError) {
-  sessionStorage.removeItem('wt_join_error');
+  sessionStorage.removeItem('nook_join_error');
   showError(joinError);
 }
 
@@ -31,7 +31,7 @@ joinBtn.addEventListener('click', () => {
   if (!/^[a-zA-Z0-9 _.\-]+$/.test(username))
     return showError('Username contains invalid characters (letters, numbers, space, _ . - only)');
   showError('');
-  sessionStorage.setItem('wt_username', username);
+  sessionStorage.setItem('nook_username', username);
   location.href = '/watch';
 });
 

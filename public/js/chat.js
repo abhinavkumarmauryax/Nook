@@ -1,4 +1,4 @@
-/* WatchTogetherParty - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
+/* Nook - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
 
 /* Standalone pop-out chat. Authenticates with the session token from the URL fragment. */
 const socket = io();

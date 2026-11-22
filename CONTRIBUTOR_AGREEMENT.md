@@ -1,4 +1,4 @@
-# Contributor Agreement — WatchTogetherParty
+# Contributor Agreement — Nook
 
 This Agreement is the "separate Contributor Agreement" referred to in sections 2.5 and 7 of the [LICENSE](LICENSE). It applies to any original Contribution submitted to the Official Repository.
 
@@ -25,7 +25,7 @@ Submission does not guarantee acceptance. This Agreement takes effect for a Cont
 Copy the block below into your pull request description, or attach a signed copy if requested by the Project Owner.
 
 ```
-Contributor Agreement — WatchTogetherParty
+Contributor Agreement — Nook
 
 Full name:
 GitHub handle:

@@ -1,4 +1,4 @@
-# Contributing to WatchTogetherParty
+# Contributing to Nook
 
 Thanks for your interest in improving the project.
 

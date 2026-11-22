@@ -1,12 +1,12 @@
-/* WatchTogetherParty - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
+/* Nook - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
 
 const socket = io();
 const params = new URLSearchParams(location.search);
 const pendingHostToken = params.get('host');
-if (pendingHostToken) sessionStorage.setItem('wt_pending_host_token', pendingHostToken);
-const pendingToken = sessionStorage.getItem('wt_pending_host_token') || undefined;
+if (pendingHostToken) sessionStorage.setItem('nook_host_token', pendingHostToken);
+const pendingToken = sessionStorage.getItem('nook_host_token') || undefined;
 
-const username = sessionStorage.getItem('wt_username');
+const username = sessionStorage.getItem('nook_username');
 if (!username) { location.href = '/join'; }
 
 const hostBadge = document.getElementById('hostBadge');
@@ -42,8 +42,8 @@ let myIsHost = false;
 let myRole = 'member';
 let mySocketId = null;
 let myUsername = username;
-let mySessionToken = sessionStorage.getItem('wt_session_token') || '';
-let myOwnerToken = sessionStorage.getItem('wt_owner_token') || '';
+let mySessionToken = sessionStorage.getItem('nook_session_token') || '';
+let myOwnerToken = sessionStorage.getItem('nook_owner_token') || '';
 let applying = false;
 let correcting = false;
 let seeking = false;
@@ -198,8 +198,8 @@ usersEl.addEventListener('click', async (e) => {
 
 // Video source -------------------------------------------------------------
 function setTitle(name) {
-  videoTitleEl.textContent = name || 'Watch Together';
-  document.title = name ? `Watch Together — ${name}` : 'Watch Together';
+  videoTitleEl.textContent = name || 'Nook';
+  document.title = name ? `Nook — ${name}` : 'Nook';
 }
 function destroyHls() {
   if (hls) { try { hls.destroy(); } catch {} hls = null; }
@@ -249,7 +249,7 @@ function applyVideo(v) {
     showNoVideo(myIsHost
       ? 'No video selected. Use 📁 Select Video or 🔗 Video URL to choose something to watch.'
       : 'The host has not selected a video yet. Sit tight — it will appear here automatically.');
-    setTitle('Watch Together');
+    setTitle('Nook');
     return;
   }
   destroyHls();
@@ -525,14 +525,14 @@ function setChatHidden(hidden) {
   mainLayout.classList.toggle('chat-collapsed', hidden);
   toggleChatBtn.textContent = hidden ? '💬 Show Chat' : '💬 Hide Chat';
   toggleChatBtn.setAttribute('aria-expanded', String(!hidden));
-  localStorage.setItem('wt_chat_hidden', hidden ? '1' : '0');
+  localStorage.setItem('nook_chat_hidden', hidden ? '1' : '0');
 }
 toggleChatBtn.addEventListener('click', () => setChatHidden(!mainLayout.classList.contains('chat-collapsed')));
-setChatHidden(localStorage.getItem('wt_chat_hidden') === '1');
+setChatHidden(localStorage.getItem('nook_chat_hidden') === '1');
 
 const CHAT_MIN = 280, CHAT_MAX = 620, VIDEO_MIN = 360;
 try {
-  const savedWidth = parseInt(localStorage.getItem('wt_chat_width') || '', 10);
+  const savedWidth = parseInt(localStorage.getItem('nook_chat_width') || '', 10);
   if (savedWidth >= CHAT_MIN && savedWidth <= CHAT_MAX) mainLayout.style.setProperty('--chat-width', savedWidth + 'px');
 } catch {}
 let resizing = false;
@@ -554,13 +554,13 @@ window.addEventListener('pointerup', () => {
   resizing = false;
   document.body.classList.remove('is-resizing');
   const w = parseInt(getComputedStyle(mainLayout).getPropertyValue('--chat-width'), 10);
-  if (w >= CHAT_MIN && w <= CHAT_MAX) localStorage.setItem('wt_chat_width', String(w));
+  if (w >= CHAT_MIN && w <= CHAT_MAX) localStorage.setItem('nook_chat_width', String(w));
 });
 
 function openPopout() {
   if (!mySessionToken) { showToast('Reconnecting — try again in a moment'); return; }
   const url = `${location.origin}/chat#${encodeURIComponent(mySessionToken)}`;
-  window.open(url, 'watch_together_chat', 'width=430,height=760');
+  window.open(url, 'nook_chat', 'width=430,height=760');
 }
 document.getElementById('popoutBtn').addEventListener('click', openPopout);
 document.getElementById('popoutBtnTop').addEventListener('click', openPopout);
@@ -590,8 +590,8 @@ function joinSession() {
     sessionToken: mySessionToken || undefined,
   }, (resp) => {
     if (!resp || !resp.ok) {
-      sessionStorage.setItem('wt_join_error', (resp && resp.message) || 'Could not join the session');
-      sessionStorage.removeItem('wt_username');
+      sessionStorage.setItem('nook_join_error', (resp && resp.message) || 'Could not join the session');
+      sessionStorage.removeItem('nook_username');
       location.href = '/join';
     }
   });
@@ -603,10 +603,10 @@ socket.on('connect_error', () => setConn('⚠ Connection error'));
 socket.on('joined', (resp) => {
   mySocketId = resp.socketId;
   mySessionToken = resp.sessionToken || mySessionToken;
-  if (mySessionToken) sessionStorage.setItem('wt_session_token', mySessionToken);
+  if (mySessionToken) sessionStorage.setItem('nook_session_token', mySessionToken);
   myOwnerToken = resp.ownerToken || '';
-  if (myOwnerToken) sessionStorage.setItem('wt_owner_token', myOwnerToken);
-  else sessionStorage.removeItem('wt_owner_token');
+  if (myOwnerToken) sessionStorage.setItem('nook_owner_token', myOwnerToken);
+  else sessionStorage.removeItem('nook_owner_token');
   applyMyPermissions({ role: resp.role, isHost: resp.isHost, muted: (resp.users || []).find((u) => u.id === resp.userId)?.muted });
   renderUsers(resp.users);
   (resp.messages || []).forEach(appendMessage);
@@ -618,8 +618,8 @@ socket.on('joined', (resp) => {
 socket.on('permissions:updated', (data) => {
   if (data.username !== myUsername) return;
   myOwnerToken = data.ownerToken || '';
-  if (myOwnerToken) sessionStorage.setItem('wt_owner_token', myOwnerToken);
-  else sessionStorage.removeItem('wt_owner_token');
+  if (myOwnerToken) sessionStorage.setItem('nook_owner_token', myOwnerToken);
+  else sessionStorage.removeItem('nook_owner_token');
   applyMyPermissions(data);
 });
 socket.on('users:updated', (data) => renderUsers(data.users));
@@ -632,9 +632,9 @@ socket.on('user:replaced', (data) => {
   location.href = '/join';
 });
 socket.on('user:kicked', (data) => {
-  sessionStorage.removeItem('wt_username');
-  sessionStorage.removeItem('wt_session_token');
-  sessionStorage.removeItem('wt_owner_token');
+  sessionStorage.removeItem('nook_username');
+  sessionStorage.removeItem('nook_session_token');
+  sessionStorage.removeItem('nook_owner_token');
   AppModal.alert({ title: 'Removed from session', message: data.message || 'You were removed by a moderator.' })
     .then(() => { location.href = '/join'; });
 });

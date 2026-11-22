@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-/* WatchTogetherParty - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
+/* Nook - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
 'use strict';
 
 /**
- * Local Watch Together – self-hosted synchronized video + chat server.
+ * Nook – self-hosted synchronized video + chat server.
  *
  * Architecture:
  *   - Bootstrap server (env PORT, default 3000): serves the "Server Setup" UI and
@@ -25,7 +25,7 @@ const { Server: IOServer } = require('socket.io');
 // -------------------- configuration --------------------
 const APP_ROOT = __dirname;
 const PUBLIC_DIR = path.join(APP_ROOT, 'public');
-const TEMP_DIR = path.join(os.tmpdir(), 'local-watch-together');
+const TEMP_DIR = path.join(os.tmpdir(), 'nook');
 
 const BOOTSTRAP_PORT = parseInt(process.env.PORT || '3000', 10);
 const MAX_VIDEO_SIZE_GB = parseInt(process.env.MAX_VIDEO_SIZE_GB || '2', 10);
