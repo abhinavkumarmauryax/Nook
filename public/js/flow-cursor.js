@@ -5,10 +5,10 @@
   'use strict';
   if (!window.matchMedia('(pointer: fine)').matches) return;
 
-  const PATH = 'M8.846 0.908C5.732 2.211 2.259 5.905 0.749 9.52C-0.441 12.369 -0.299 17.987 1.801 51.129C3.137 72.202 5.208 105.868 6.404 125.943C7.6 146.018 9.016 164.216 9.552 166.383C12.324 177.606 26.684 181.495 34.613 173.17C36.041 171.671 44.037 159.868 52.38 146.943C75.505 111.121 71.194 113.758 112.099 110.419C128.46 109.084 143.491 107.525 145.503 106.955C155.694 104.068 159.672 89.192 152.113 82.238C150.866 81.092 135.446 71.265 117.846 60.402C78.79 36.296 67.346 29.222 56.346 22.389C20.182 -0.076 20.211 -0.06 15.42 0.007C12.904 0.042 9.946 0.447 8.846 0.908Z';
-  const SVG = '<svg width="17" height="19" viewBox="0 0 156.039 177.642" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-    '<path d="' + PATH + '" fill="#FFFFFF" fill-rule="evenodd"/>' +
-    '<path transform="matrix(0.7 0 0 0.7 23.4 26.7)" d="' + PATH + '" fill="#3A3A42" fill-rule="evenodd"/></svg>';
+  const SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<circle cx="12" cy="12" r="6.2" stroke="#E7F1FD" stroke-width="1" opacity="0.4"/>' +
+    '<path d="M12 2.5V8M12 16V21.5M2.5 12H8M16 12H21.5" stroke="#E7F1FD" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<circle cx="12" cy="12" r="1.7" fill="#F8A838"/></svg>';
 
   const root = document.createElement('div');
   root.id = 'flowCursor';
@@ -26,7 +26,7 @@
   const trail = trails.map(() => ({ x, y, a: 0 }));
 
   function place(el, px, py, deg, scale) {
-    el.style.transform = `translate3d(${px - 8}px,${py - 9}px,0) rotate(${deg}deg) scale(${scale})`;
+    el.style.transform = `translate3d(${px - 12}px,${py - 12}px,0) rotate(${deg}deg) scale(${scale})`;
   }
 
   document.addEventListener('mousemove', (e) => {

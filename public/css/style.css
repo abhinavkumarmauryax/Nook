@@ -18,7 +18,7 @@
   --brand: linear-gradient(115deg, var(--orange) 0%, var(--orange-bright) 55%, var(--red) 100%);
   --glass: rgba(10,10,13,.72);
   --glass-strong: rgba(17,17,21,.82);
-  --cursor: url('/assets/cursor.svg') 1 1, auto;
+  --cursor: url('/assets/cursor.svg') 12 12, auto;
   --success: #3ddc97;
   --danger: #D20A2E;
   --ice: #E7F1FD;
@@ -56,7 +56,7 @@ html.cursor-rotating input, html.cursor-rotating textarea { cursor: text !import
   opacity: 0; transition: opacity .12s;
 }
 #flowCursor .flow-arrow, #flowCursor .flow-trail {
-  position: fixed; left: 0; top: 0; width: 17px; height: 19px; display: block;
+  position: fixed; left: 0; top: 0; width: 24px; height: 24px; display: block;
   will-change: transform; filter: drop-shadow(0 0 2px rgba(0,0,0,.9));
 }
 #flowCursor .flow-trail { opacity: .16; }
