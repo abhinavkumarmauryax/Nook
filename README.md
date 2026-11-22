@@ -67,8 +67,8 @@ nook/
 ## Running from source
 
 ```bash
-git clone https://github.com/abhinavkumarmauryax/WatchTogetherParty.git
-cd WatchTogetherParty   # the repository folder keeps its original name
+git clone https://github.com/abhinavkumarmauryax/Nook.git
+cd Nook
 npm install
 npm start
 ```

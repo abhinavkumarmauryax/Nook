@@ -5,7 +5,7 @@ Thanks for your interest in improving the project.
 ## Before you start
 
 - Read the [LICENSE](LICENSE). This is a source-available, non-commercial, contribution-only project — not an open-source licence.
-- Contributions are accepted only through the [Official Repository](https://github.com/abhinavkumarmauryax/WatchTogetherParty).
+- Contributions are accepted only through the [Official Repository](https://github.com/abhinavkumarmauryax/Nook).
 - By submitting an issue or pull request you confirm that your contribution is your own original work, or that you have the necessary rights to submit it.
 
 ## Contributor Agreement
@@ -38,4 +38,4 @@ If your contribution includes third-party libraries, assets or code, identify th
 
 ## Questions
 
-Open an issue in the [Official Repository](https://github.com/abhinavkumarmauryax/WatchTogetherParty).
+Open an issue in the [Official Repository](https://github.com/abhinavkumarmauryax/Nook).
