@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "build": "npx --yes pkg@5.8.1 . --output nook.exe --targets node18-win-x64"
+    "build": "node scripts/build.js"
   },
   "dependencies": {
     "express": "^4.19.2",
@@ -34,5 +34,8 @@
     "local-network",
     "streaming"
   ],
-  "license": "SEE LICENSE IN LICENSE"
+  "license": "SEE LICENSE IN LICENSE",
+  "devDependencies": {
+    "rcedit": "^3.1.0"
+  }
 }
