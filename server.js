@@ -26,6 +26,7 @@ const { Server: IOServer } = require('socket.io');
 const APP_ROOT = __dirname;
 const PUBLIC_DIR = path.join(APP_ROOT, 'public');
 const TEMP_DIR = path.join(os.tmpdir(), 'nook');
+const HOME_DIR = os.homedir();
 
 const BOOTSTRAP_PORT = parseInt(process.env.PORT || '3000', 10);
 const MAX_VIDEO_SIZE_GB = parseInt(process.env.MAX_VIDEO_SIZE_GB || '2', 10);
@@ -103,17 +104,11 @@ function computePlaybackTime() {
   return Math.max(0, playbackState.currentTime + elapsed);
 }
 
-function escapeHtml(text) {
-  return String(text === null || text === undefined ? '' : text)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-}
-
 function addChatMessage(username, text, type = 'chat') {
   const msg = {
     id: crypto.randomUUID(),
     username: type === 'system' ? '' : username,
-    text: type === 'system' ? text : escapeHtml(text),
+    text: String(text),
     timestamp: Date.now(),
     type,
   };
@@ -172,6 +167,12 @@ function getUserFromSocket(socket) {
 
 function isOwner(user) {
   return !!user && user.role === 'owner';
+}
+
+// Shared playback may be driven by the owner or an admin. Video source changes
+// remain owner-only.
+function canControlPlayback(user) {
+  return !!user && (user.role === 'owner' || user.role === 'admin');
 }
 
 // Owner may moderate anyone except the owner. Admin may only moderate members.
@@ -251,14 +252,47 @@ function validateMediaUrl(raw) {
   return { ok: true, url: url.toString(), name };
 }
 
+// Resolve a host-supplied path safely. Only files under the host's own user
+// folder are accepted, and symlinks are resolved so they cannot escape it.
+function resolveLocalVideo(input) {
+  let raw = String(input || '').trim();
+  if (!raw) return { ok: false, error: 'Enter a file path' };
+  if (raw.startsWith('~')) raw = path.join(HOME_DIR, raw.slice(1));
+  let resolved;
+  try { resolved = path.resolve(raw); } catch { return { ok: false, error: 'Invalid path' }; }
+  let real;
+  try { real = fs.realpathSync(resolved); } catch { return { ok: false, error: 'File not found' }; }
+  let home;
+  try { home = fs.realpathSync(HOME_DIR); } catch { home = HOME_DIR; }
+  const prefix = home.endsWith(path.sep) ? home : home + path.sep;
+  if (!real.startsWith(prefix)) return { ok: false, error: 'Only files inside your user folder can be shared' };
+  let stat;
+  try { stat = fs.statSync(real); } catch { return { ok: false, error: 'Cannot read that file' }; }
+  if (!stat.isFile()) return { ok: false, error: 'That is not a file' };
+  const ext = path.extname(real).toLowerCase();
+  if (!ALLOWED_VIDEO_EXTS.includes(ext))
+    return { ok: false, error: 'Unsupported format. Use MP4, WebM, OGG, MOV or M4V.' };
+  if (stat.size > MAX_VIDEO_SIZE)
+    return { ok: false, error: `File too large (max ${MAX_VIDEO_SIZE_GB} GB)` };
+  return { ok: true, path: real, name: path.basename(real), size: stat.size, type: ext };
+}
+
+function isAuthorizedOwner(req) {
+  const suppliedHost = req.headers['x-host-token'] || (req.query && req.query.token);
+  const suppliedOwner = req.headers['x-owner-token'] || (req.query && req.query.token);
+  const currentOwner = Array.from(users.values()).find((u) => u.role === 'owner');
+  return (hostToken && suppliedHost === hostToken && !ownershipTransferred) ||
+    !!(currentOwner && suppliedOwner && suppliedOwner === currentOwner.ownerToken);
+}
+
 function activateVideo(descriptor, announceText) {
+  const previousTemp = currentVideoTempPath;
   currentVideo = descriptor;
-  if (descriptor.kind === 'file') currentVideoTempPath = descriptor.path;
-  else {
-    if (currentVideoTempPath && fs.existsSync(currentVideoTempPath)) {
-      try { fs.unlinkSync(currentVideoTempPath); } catch {}
-    }
-    currentVideoTempPath = null;
+  // Only uploaded copies are temporary. A host-selected local path must never
+  // be deleted � it stays on the host's disk and is streamed from there.
+  currentVideoTempPath = descriptor.temp ? descriptor.path : null;
+  if (previousTemp && previousTemp !== descriptor.path && fs.existsSync(previousTemp)) {
+    try { fs.unlinkSync(previousTemp); } catch {}
   }
   playbackState.videoKey = crypto.randomUUID();
   playbackState.isPlaying = false;
@@ -310,13 +344,14 @@ function startSessionServer(port) {
 
     app.use((req, res, next) => {
       res.header('Access-Control-Allow-Origin', '*');
-      res.header('Access-Control-Allow-Headers', 'Content-Type, X-Host-Token, X-File-Name');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, X-Host-Token, X-Owner-Token, X-File-Name');
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       if (req.method === 'OPTIONS') return res.sendStatus(204);
       next();
     });
 
     app.use(express.static(PUBLIC_DIR));
+    app.use(express.json({ limit: '16kb' }));
 
     // pkg snapshots cannot serve Socket.IO's client from node_modules at runtime.
     app.get('/socket.io/socket.io.js', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'js', 'socket.io.js')));
@@ -331,15 +366,58 @@ function startSessionServer(port) {
       res.json(videoDescriptor());
     });
 
+    app.get('/api/status', (_req, res) => res.json({
+      running: true,
+      port,
+      homeDir: HOME_DIR,
+      downloadsDir: path.join(HOME_DIR, 'Downloads'),
+    }));
+
+    // Share a video already on the host's disk - no upload/copy at all.
+    app.post('/api/video/local', (req, res) => {
+      if (!isAuthorizedOwner(req)) return res.status(401).json({ error: 'Owner authorization required' });
+      const result = resolveLocalVideo(req.body && req.body.path);
+      if (!result.ok) return res.status(400).json({ error: result.error });
+      const video = activateVideo({
+        kind: 'file', path: result.path, name: result.name,
+        size: result.size, type: result.type, temp: false,
+      });
+      res.json({ ok: true, video });
+    });
+
+    // Small directory browser for the local-file picker (owner only).
+    app.get('/api/browse', (req, res) => {
+      if (!isAuthorizedOwner(req)) return res.status(401).json({ error: 'Owner authorization required' });
+      let dir = String(req.query.dir || HOME_DIR);
+      if (dir.startsWith('~')) dir = path.join(HOME_DIR, dir.slice(1));
+      let real;
+      try { real = fs.realpathSync(path.resolve(dir)); } catch {
+        return res.status(400).json({ error: 'Folder not found' });
+      }
+      let home;
+      try { home = fs.realpathSync(HOME_DIR); } catch { home = HOME_DIR; }
+      const prefix = home.endsWith(path.sep) ? home : home + path.sep;
+      if (real !== home && !real.startsWith(prefix))
+        return res.status(403).json({ error: 'Only your user folder is accessible' });
+      let entries = [];
+      try { entries = fs.readdirSync(real, { withFileTypes: true }); } catch {}
+      const folders = entries.filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+        .map((e) => ({ name: e.name, path: path.join(real, e.name) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      const files = entries.filter((e) => e.isFile() && ALLOWED_VIDEO_EXTS.includes(path.extname(e.name).toLowerCase()))
+        .map((e) => {
+          let size = 0;
+          try { size = fs.statSync(path.join(real, e.name)).size; } catch {}
+          return { name: e.name, path: path.join(real, e.name), size };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
+      const parent = real === home ? null : path.dirname(real);
+      res.json({ current: real, parent, home: home, folders, files });
+    });
+
     // Video upload (host token only). Streamed straight to disk.
     app.post('/api/video/upload', (req, res) => {
-      const suppliedHost = req.headers['x-host-token'];
-      const suppliedOwner = req.headers['x-owner-token'];
-      const currentOwner = Array.from(users.values()).find((u) => u.role === 'owner');
-      const authorized =
-        (hostToken && suppliedHost === hostToken && !ownershipTransferred) ||
-        (currentOwner && suppliedOwner && suppliedOwner === currentOwner.ownerToken);
-      if (!authorized) return res.status(401).json({ error: 'Owner authorization required' });
+      if (!isAuthorizedOwner(req)) return res.status(401).json({ error: 'Owner authorization required' });
       const rawHeader = req.headers['x-file-name'];
       if (!rawHeader) return res.status(400).json({ error: 'File name missing' });
       let decodedName = String(rawHeader);
@@ -373,7 +451,7 @@ function startSessionServer(port) {
         try { stat = fs.statSync(tmpPath); } catch {
           return res.status(500).json({ error: 'Failed to save uploaded video' });
         }
-        const v = activateVideo({ kind: 'file', path: tmpPath, name, size: stat.size, type: ext });
+        const v = activateVideo({ kind: 'file', path: tmpPath, name, size: stat.size, type: ext, temp: true });
         res.json({ ok: true, video: v });
       });
       out.on('error', () => {
@@ -553,7 +631,7 @@ function startSessionServer(port) {
         socket.emit('joined', p);
         broadcastPlaybackState(io, socket);
         io.emit('user:joined', { username: trimmed, users: userListPayload() });
-        emitSystem(`${escapeHtml(trimmed)} joined the session`);
+        emitSystem(`${trimmed} joined the session`);
         emitPermissions(io);
       });
 
@@ -626,7 +704,7 @@ function startSessionServer(port) {
       // ---- playback (owner only, enforced here) ----
       socket.on('playback:control', (data, cb) => {
         const user = getUserFromSocket(socket);
-        if (!isOwner(user)) return ack(cb, false, 'Only the owner can control playback');
+        if (!canControlPlayback(user)) return ack(cb, false, 'Only the owner or an admin can control playback');
         const { action, time } = data || {};
         const now = Date.now();
         const current = computePlaybackTime();
@@ -658,7 +736,7 @@ function startSessionServer(port) {
 
       socket.on('video:duration', (data, cb) => {
         const user = getUserFromSocket(socket);
-        if (!isOwner(user)) return ack(cb, false, 'Owner only');
+        if (!canControlPlayback(user)) return ack(cb, false, 'Owner or admin only');
         const { duration } = data || {};
         if (typeof duration === 'number' && isFinite(duration)) playbackState.duration = duration;
         ack(cb, true);
@@ -685,7 +763,7 @@ function startSessionServer(port) {
         if (shouldMute) mutedUsers.add(key); else mutedUsers.delete(key);
         emitToUser(io, target, 'user:muted', { muted: shouldMute });
         io.emit('users:updated', { users: userListPayload() });
-        emitSystem(`${escapeHtml(target.username)} ${shouldMute ? 'was muted' : 'was unmuted'} by ${escapeHtml(actor.username)}`);
+        emitSystem(`${target.username} ${shouldMute ? 'was muted' : 'was unmuted'} by ${actor.username}`);
         emitPermissions(io);
         ack(cb, true);
       });
@@ -697,7 +775,7 @@ function startSessionServer(port) {
         target.kicked = true;
         target.sessionToken = null;
         kickedCooldown.set(target.username.toLowerCase(), Date.now() + KICK_COOLDOWN_MS);
-        emitSystem(`${escapeHtml(target.username)} was removed by ${escapeHtml(actor.username)}`);
+        emitSystem(`${target.username} was removed by ${actor.username}`);
         emitToUser(io, target, 'user:kicked', { message: 'You were removed from the session by a moderator.' });
         const primary = io.sockets.sockets.get(target.id);
         if (primary) setTimeout(() => primary.disconnect(true), 100);
@@ -718,12 +796,12 @@ function startSessionServer(port) {
           if (target.role !== 'member') return ack(cb, false, 'This participant is not a regular member');
           target.role = 'admin';
           target.roleChangedAt = nextRoleSeq();
-          emitSystem(`${escapeHtml(target.username)} was promoted to admin`);
+          emitSystem(`${target.username} was promoted to admin`);
         } else if (action === 'demote') {
           if (target.role !== 'admin') return ack(cb, false, 'This participant is not an admin');
           target.role = 'member';
           target.roleChangedAt = nextRoleSeq();
-          emitSystem(`${escapeHtml(target.username)} was demoted to member`);
+          emitSystem(`${target.username} was demoted to member`);
         } else {
           return ack(cb, false, 'Unknown role action');
         }
@@ -767,7 +845,7 @@ function startSessionServer(port) {
         pendingTransfer = null;
         if (!accepted) {
           emitToUser(io, from, 'host:transfer:declined', { by: user.username });
-          emitSystem(`${escapeHtml(user.username)} declined the host transfer`);
+          emitSystem(`${user.username} declined the host transfer`);
           return ack(cb, true, null, { accepted: false });
         }
         if (!from || !to) return ack(cb, false, 'One of the participants has left');
@@ -783,7 +861,7 @@ function startSessionServer(port) {
           newOwner: to.username,
           users: userListPayload(),
         });
-        emitSystem(`${escapeHtml(to.username)} is now the owner. ${escapeHtml(from.username)} is now a member.`);
+        emitSystem(`${to.username} is now the owner. ${from.username} is now a member.`);
         io.emit('users:updated', { users: userListPayload() });
         emitPermissions(io);
         ack(cb, true, null, { accepted: true });
@@ -817,7 +895,7 @@ function startSessionServer(port) {
         }
 
         io.emit('user:left', { username: user.username, users: userListPayload() });
-        if (!user.kicked) emitSystem(`${escapeHtml(user.username)} left the session`);
+        if (!user.kicked) emitSystem(`${user.username} left the session`);
 
         // If the owner left, wait briefly before auto-promoting. A page reload or
         // network blip reconnects with the same session token and cancels this.
@@ -836,7 +914,7 @@ function startSessionServer(port) {
             next.role = 'owner';
             next.roleChangedAt = nextRoleSeq();
             enforceSingleOwner();
-            emitSystem(`${escapeHtml(next.username)} is now the owner.`);
+            emitSystem(`${next.username} is now the owner.`);
             io.emit('host:transfer:complete', {
               previousOwner: user.username,
               newOwner: next.username,
@@ -885,6 +963,8 @@ bootstrapApp.get('/api/status', (_req, res) => {
     port: sessionPort,
     url: sessionUrl,
     hostToken,
+    homeDir: HOME_DIR,
+    downloadsDir: path.join(HOME_DIR, 'Downloads'),
     ips: getLocalIPv4Addresses(),
     participants: sessionIo ? sessionIo.engine.clientsCount : 0,
     video: currentVideo ? { name: currentVideo.name, size: currentVideo.size, kind: currentVideo.kind } : null,

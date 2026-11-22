@@ -28,6 +28,11 @@ const fullscreenBtn = document.getElementById('fullscreenBtn');
 const videoTitleEl = document.getElementById('videoTitle');
 const selectVideoBtn = document.getElementById('selectVideoBtn');
 const videoUrlBtn = document.getElementById('videoUrlBtn');
+const localVideoBtn = document.getElementById('localVideoBtn');
+const localFileModal = document.getElementById('localFileModal');
+const localPathInput = document.getElementById('localPathInput');
+const browseList = document.getElementById('browseList');
+const browseCrumb = document.getElementById('browseCrumb');
 const hostFileInput = document.getElementById('hostFileInput');
 const messagesEl = document.getElementById('messages');
 const messageInput = document.getElementById('messageInput');
@@ -40,6 +45,7 @@ const toggleChatBtn = document.getElementById('toggleChatBtn');
 
 let myIsHost = false;
 let myRole = 'member';
+function canControlPlayback() { return myIsHost || myRole === 'admin'; }
 let mySocketId = null;
 let myUsername = username;
 let mySessionToken = sessionStorage.getItem('nook_session_token') || '';
@@ -86,11 +92,23 @@ function appendMessage(msg) {
   const div = document.createElement('div');
   div.className = 'message ' + msg.type;
   const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = time;
   if (msg.type === 'system') {
-    div.innerHTML = `<div class="bubble">${escapeHtml(msg.text)}</div><div class="meta">${time}</div>`;
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = msg.text;
+    div.append(bubble, meta);
   } else {
     if (msg.username === myUsername) div.classList.add('me');
-    div.innerHTML = `<span class="username">${escapeHtml(msg.username)}:</span> <span class="bubble">${escapeHtml(msg.text)}</span><div class="meta">${time}</div>`;
+    const name = document.createElement('span');
+    name.className = 'username';
+    name.textContent = msg.username + ':';
+    const bubble = document.createElement('span');
+    bubble.className = 'bubble';
+    bubble.textContent = msg.text;
+    div.append(name, bubble, meta);
   }
   messagesEl.appendChild(div);
   if (stick) scrollToBottom();
@@ -98,8 +116,8 @@ function appendMessage(msg) {
 
 // Permissions / participants ----------------------------------------------
 function setControlsEnabled() {
-  playPauseBtn.style.display = myIsHost ? '' : 'none';
-  seekRange.disabled = !myIsHost;
+  playPauseBtn.style.display = canControlPlayback() ? '' : 'none';
+  seekRange.disabled = !canControlPlayback();
   muteBtn.disabled = false;
   volumeRange.disabled = false;
   fullscreenBtn.disabled = false;
@@ -112,6 +130,7 @@ function applyMyPermissions(data) {
   adminBadge.style.display = myRole === 'admin' ? 'inline-block' : 'none';
   setControlsEnabled();
   selectVideoBtn.style.display = myIsHost ? 'inline-flex' : 'none';
+  localVideoBtn.style.display = myIsHost ? 'inline-flex' : 'none';
   videoUrlBtn.style.display = myIsHost ? 'inline-flex' : 'none';
   setMutedState(!!data.muted);
   renderUsers(lastUserList);
@@ -320,7 +339,7 @@ function applyPlaybackState(state) {
   applying = false;
 }
 function enforcePlayback() {
-  if (myIsHost || applying || correcting || !currentVideoDescriptor) return;
+  if (canControlPlayback() || applying || correcting || !currentVideoDescriptor) return;
   if (video.readyState === 0) return;
   const target = expectedTime();
   correcting = true;
@@ -340,7 +359,7 @@ video.addEventListener('loadedmetadata', () => {
   showLoading(false);
   if (pendingTime !== null) { try { video.currentTime = pendingTime; } catch {} pendingTime = null; }
   enforcePlayback();
-  if (myIsHost && isFinite(video.duration)) socket.emit('video:duration', { duration: video.duration });
+  if (canControlPlayback() && isFinite(video.duration)) socket.emit('video:duration', { duration: video.duration });
 });
 video.addEventListener('loadeddata', () => showLoading(false));
 video.addEventListener('canplay', () => showLoading(false));
@@ -366,34 +385,34 @@ function tick() {
 video.addEventListener('play', () => {
   updatePlayPauseIcon();
   if (!raf) raf = requestAnimationFrame(tick);
-  if (myIsHost && !applying && !correcting)
+  if (canControlPlayback() && !applying && !correcting)
     socket.emit('playback:control', { action: 'play', time: video.currentTime });
-  else if (!myIsHost && !applying && !correcting) enforcePlayback();
+  else if (!canControlPlayback() && !applying && !correcting) enforcePlayback();
 });
 video.addEventListener('pause', () => {
   updatePlayPauseIcon();
-  if (myIsHost && !applying && !correcting)
+  if (canControlPlayback() && !applying && !correcting)
     socket.emit('playback:control', { action: 'pause', time: video.currentTime });
-  else if (!myIsHost && !applying && !correcting) enforcePlayback();
+  else if (!canControlPlayback() && !applying && !correcting) enforcePlayback();
 });
 video.addEventListener('seeking', () => { seeking = true; });
 video.addEventListener('seeked', () => {
   seeking = false;
-  if (myIsHost && !applying && !correcting)
+  if (canControlPlayback() && !applying && !correcting)
     socket.emit('playback:control', { action: 'seek', time: video.currentTime });
-  else if (!myIsHost && !applying && !correcting) enforcePlayback();
+  else if (!canControlPlayback() && !applying && !correcting) enforcePlayback();
 });
-video.addEventListener('ratechange', () => { if (!myIsHost && !applying && !correcting) enforcePlayback(); });
+video.addEventListener('ratechange', () => { if (!canControlPlayback() && !applying && !correcting) enforcePlayback(); });
 video.addEventListener('ended', () => { updatePlayPauseIcon(); if (raf) cancelAnimationFrame(raf); raf = null; });
 video.addEventListener('click', (e) => {
-  if (!myIsHost) { e.preventDefault(); enforcePlayback(); }
+  if (!canControlPlayback()) { e.preventDefault(); enforcePlayback(); }
 });
 video.addEventListener('contextmenu', (e) => { e.preventDefault(); });
-setInterval(() => { if (!myIsHost) enforcePlayback(); }, 1000);
+setInterval(() => { if (!canControlPlayback()) enforcePlayback(); }, 1000);
 
-// Keyboard shortcuts that could change playback are blocked for non-owners.
+// Keyboard shortcuts that could change playback are blocked for members.
 document.addEventListener('keydown', (e) => {
-  if (myIsHost) return;
+  if (canControlPlayback()) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   const blocked = [' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End',
@@ -406,7 +425,7 @@ document.addEventListener('keydown', (e) => {
 }, true);
 
 playPauseBtn.addEventListener('click', () => {
-  if (!myIsHost) { showToast('Only the owner controls playback'); return; }
+  if (!canControlPlayback()) { showToast('Only the owner or an admin controls playback'); return; }
   if (video.paused) video.play().catch(() => showToast('Unable to play video'));
   else video.pause();
 });
@@ -423,9 +442,9 @@ seekRange.addEventListener('input', () => {
   timeDisplay.textContent = `${formatTime(seekRange.valueAsNumber)} / ${formatTime(video.duration)}`;
 });
 seekRange.addEventListener('change', () => {
-  if (!myIsHost) {
+  if (!canControlPlayback()) {
     seekRange.value = video.currentTime || 0;
-    showToast('Only the owner can seek');
+    showToast('Only the owner or an admin can seek');
     return;
   }
   video.currentTime = seekRange.valueAsNumber;
@@ -512,6 +531,96 @@ hostFileInput.addEventListener('change', () => {
   xhr.onerror = () => showToast('Upload failed (network error)');
   xhr.onabort = () => showToast('Upload cancelled');
   xhr.send(file);
+});
+
+// Local file (zero-copy streaming) -----------------------------------------
+function ownerHeaders() {
+  return {
+    'X-Host-Token': pendingToken || '',
+    ...(myOwnerToken ? { 'X-Owner-Token': myOwnerToken } : {}),
+  };
+}
+function browseParams(dir) {
+  const h = ownerHeaders();
+  const q = new URLSearchParams();
+  if (dir) q.set('dir', dir);
+  const token = h['X-Owner-Token'] || h['X-Host-Token'];
+  if (token) q.set('token', token);
+  return q.toString();
+}
+async function loadBrowse(dir) {
+  try {
+    const res = await fetch('/api/browse?' + browseParams(dir));
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Could not browse folder'); return; }
+    browseCrumb.textContent = data.current;
+    browseList.innerHTML = '';
+    if (data.parent && data.parent !== data.current) {
+      const up = document.createElement('button');
+      up.className = 'browse-item';
+      up.textContent = '📁 .. (parent folder)';
+      up.addEventListener('click', () => loadBrowse(data.parent));
+      browseList.appendChild(up);
+    }
+    data.folders.forEach((f) => {
+      const b = document.createElement('button');
+      b.className = 'browse-item';
+      b.textContent = '📁 ' + f.name;
+      b.addEventListener('click', () => loadBrowse(f.path));
+      browseList.appendChild(b);
+    });
+    data.files.forEach((f) => {
+      const b = document.createElement('button');
+      b.className = 'browse-item' + (localPathInput.value === f.path ? ' selected' : '');
+      b.textContent = '🎬 ' + f.name;
+      const sz = document.createElement('span');
+      sz.className = 'browse-size';
+      sz.textContent = (f.size / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+      b.appendChild(sz);
+      b.addEventListener('click', () => {
+        localPathInput.value = f.path;
+        browseList.querySelectorAll('.browse-item').forEach((x) => x.classList.remove('selected'));
+        b.classList.add('selected');
+      });
+      browseList.appendChild(b);
+    });
+    if (!data.folders.length && !data.files.length) {
+      const e = document.createElement('div');
+      e.className = 'browse-empty';
+      e.textContent = 'No supported video files in this folder.';
+      browseList.appendChild(e);
+    }
+  } catch { showToast('Could not reach the server'); }
+}
+function openLocalFileModal() {
+  localFileModal.style.display = 'flex';
+  loadBrowse('');
+}
+function closeLocalFileModal() { localFileModal.style.display = 'none'; }
+localVideoBtn.addEventListener('click', openLocalFileModal);
+document.getElementById('localFileCancel').addEventListener('click', closeLocalFileModal);
+localFileModal.addEventListener('click', (e) => { if (e.target === localFileModal) closeLocalFileModal(); });
+document.getElementById('browseHomeBtn').addEventListener('click', () => loadBrowse(''));
+document.getElementById('browseDownloadsBtn').addEventListener('click', async () => {
+  try {
+    const s = await (await fetch('/api/status')).json();
+    loadBrowse(s.downloadsDir || '');
+  } catch { loadBrowse(''); }
+});
+document.getElementById('localFileUse').addEventListener('click', async () => {
+  const filePath = localPathInput.value.trim();
+  if (!filePath) return showToast('Choose a file first');
+  try {
+    const res = await fetch('/api/video/local', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
+      body: JSON.stringify({ path: filePath }),
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Could not share that file');
+    closeLocalFileModal();
+    showToast('Sharing ' + data.video.name + ' directly from disk');
+  } catch { showToast('Could not reach the server'); }
 });
 
 // Chat ---------------------------------------------------------------------

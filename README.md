@@ -11,9 +11,9 @@ No paid subscription, no cloud server, no database, no third-party streaming ser
 ## Features
 
 - **Host setup page** — choose a port, start/stop the session server, see your LAN IP, join URL, chat URL, status, and participant count.
-- **Local video or video URL** — the owner picks a file from disk or pastes a direct MP4/WebM/HLS URL. Local files are streamed with HTTP range requests (seeking works) and written to temp disk, never held in memory.
+- **Local video or video URL** — the owner can share a file already on disk **directly, with no upload or copy** (instant, even for multi-gigabyte files), upload a file, or paste a direct MP4/WebM/HLS URL. Everything is streamed with HTTP range requests so seeking works; nothing is held in memory.
 - **Synchronized playback** — only the owner can play, pause, seek or change the video. New joiners sync to the current position.
-- **Three permission levels** — owner, admin, and member. Admins can mute/kick regular members; only the owner manages admins and playback.
+- **Three permission levels** — owner, admin, and member. Admins can mute/kick regular members and control shared playback (play/pause/seek); only the owner manages admins, hosts and video sources.
 - **Host transfer** — the owner can hand ownership to another participant, who must accept before the transfer happens.
 - **Real-time chat** — usernames, timestamps, emoji, system messages, length limits, and rate limiting. Muted members cannot chat.
 - **Standalone pop-out chat** — `/chat` opens a compact chat-only page authenticated by the joined session.
@@ -59,7 +59,7 @@ nook/
 3. Open <http://localhost:3000>.
 4. Start the server on a port (default `3001`).
 5. Click **Open Watch Session (Host)**, enter a username, and join.
-6. Use **📁 Select Video** or **🔗 Video URL** in the player to choose what everyone watches.
+6. Use **📂 Local File (no upload)** to stream an existing file instantly, or **📁 Select Video** / **🔗 Video URL** for an upload or direct media link.
 7. Share the Session URL with people on the same network: `http://<host-ip>:3001/join`.
 
 > Windows may warn about an unsigned executable: **More info → Run anyway**.
@@ -79,8 +79,8 @@ Then open <http://localhost:3000>. `PORT=4000 npm start` changes the setup UI po
 
 | Action | Owner | Admin | Member |
 | --- | --- | --- | --- |
-| Play / pause / seek / change video | ✅ | ❌ | ❌ |
-| Upload local file / set video URL | ✅ | ❌ | ❌ |
+| Play / pause / seek | ✅ | ✅ | ❌ |
+| Change video (local path, upload, URL) | ✅ | ❌ | ❌ |
 | Mute, unmute, kick members | ✅ | ✅ | ❌ |
 | Mute/kick admins | ✅ | ❌ | ❌ |
 | Promote / demote admins | ✅ | ❌ | ❌ |

@@ -146,11 +146,23 @@ function appendMessage(msg) {
   const div = document.createElement('div');
   div.className = 'message ' + msg.type;
   const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = time;
   if (msg.type === 'system') {
-    div.innerHTML = `<div class="bubble">${escapeHtml(msg.text)}</div><div class="meta">${time}</div>`;
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = msg.text;
+    div.append(bubble, meta);
   } else {
     if (msg.username === myUsername) div.classList.add('me');
-    div.innerHTML = `<span class="username">${escapeHtml(msg.username)}:</span> <span class="bubble">${escapeHtml(msg.text)}</span><div class="meta">${time}</div>`;
+    const name = document.createElement('span');
+    name.className = 'username';
+    name.textContent = msg.username + ':';
+    const bubble = document.createElement('span');
+    bubble.className = 'bubble';
+    bubble.textContent = msg.text;
+    div.append(name, bubble, meta);
   }
   messagesEl.appendChild(div);
   if (stick) scrollToBottom();
