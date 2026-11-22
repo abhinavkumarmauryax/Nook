@@ -39,20 +39,26 @@
     place(arrow, x, y, angle, 1);
     trail.forEach((p, i) => { p.x = x; p.y = y; place(trails[i], x, y, p.a, 0.9 - i * 0.12); });
     if (!active) {
-      active = true;
       x = tx; y = ty;
       trail.forEach((p) => { p.x = tx; p.y = ty; p.a = 0; });
-      root.style.opacity = '1';
-      // Hide the native cursor only now, when the overlay is actually visible.
-      document.documentElement.classList.add('cursor-rotating');
+      setActive(true);
     }
   }, { passive: true });
 
+  // Overlay visibility and hiding the native cursor must always move together.
+  function setActive(on) {
+    active = on;
+    root.style.opacity = on ? '1' : '0';
+    document.documentElement.classList.toggle('cursor-rotating', on);
+  }
   document.addEventListener('mouseout', (e) => {
-    if (!e.relatedTarget) root.style.opacity = '0';
+    if (!e.relatedTarget) setActive(false);
   });
-  document.addEventListener('mouseover', () => { if (active) root.style.opacity = '1'; });
-  window.addEventListener('blur', () => document.documentElement.classList.remove('cursor-rotating'));
+  document.addEventListener('mouseover', (e) => {
+    if (e.relatedTarget === null || active === false) setActive(true);
+  });
+  window.addEventListener('blur', () => setActive(false));
+  window.addEventListener('focus', () => { if (active) setActive(true); });
 
   place(arrow, x, y, angle, 1);
   trail.forEach((p, i) => place(trails[i], p.x, p.y, p.a, 0.9 - i * 0.12));

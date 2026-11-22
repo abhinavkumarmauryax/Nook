@@ -536,6 +536,8 @@ body.is-resizing { user-select: none; cursor: col-resize; }
 }
 /* Touch devices: comfortable target sizes and no hover-only affordances */
 @media (pointer: coarse) {
+  #flowCursor { display: none !important; }
+  html.cursor-rotating, html.cursor-rotating * { cursor: auto !important; }
   .icon-btn { width: 42px; height: 42px; }
   .btn { min-height: 40px; }
   .rail-btn { width: 46px; height: 46px; }
