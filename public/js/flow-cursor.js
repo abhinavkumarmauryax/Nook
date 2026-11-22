@@ -43,11 +43,38 @@
       trail.forEach((p) => { p.x = tx; p.y = ty; p.a = 0; });
       setActive(true);
     }
+    root.style.opacity = '1';
+    scheduleIdle(e);
   }, { passive: true });
+
+  // Hide the overlay over the video after 5s still; any move/click brings it back.
+  let idleTimer = null;
+  function isOverVideo(e) {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    return !!(el && el.closest && el.closest('#videoWrapper'));
+  }
+  function scheduleIdle(e) {
+    clearTimeout(idleTimer);
+    if (!active) return;
+    if (isOverVideo(e)) {
+      idleTimer = setTimeout(() => {
+        if (active) root.style.opacity = '0';
+      }, 5000);
+    } else {
+      root.style.opacity = '1';
+    }
+  }
+  ['pointerdown', 'click'].forEach((evt) => {
+    document.addEventListener(evt, (e) => {
+      if (active) root.style.opacity = '1';
+      scheduleIdle(e);
+    }, { passive: true });
+  });
 
   // Overlay visibility and hiding the native cursor must always move together.
   function setActive(on) {
     active = on;
+    clearTimeout(idleTimer);
     root.style.opacity = on ? '1' : '0';
     document.documentElement.classList.toggle('cursor-rotating', on);
   }
