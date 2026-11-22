@@ -12,7 +12,7 @@
   <nav class="rail" aria-label="Nook navigation">
     <img class="brand-logo rail-logo" src="/assets/nook-logo.svg" alt="Nook">
     <div class="rail-divider"></div>
-    <button class="rail-btn active" id="railWatch" title="Watch room">▶<span class="rail-tip">Watch room</span></button>
+    <button class="rail-btn" id="railVideo" title="Change video" style="display:none">🎬<span class="rail-tip">Change video</span></button>
     <button class="rail-btn" id="railChatToggle" title="Show/hide chat">💬<span class="rail-tip">Show / hide chat</span></button>
     <button class="rail-btn" id="railParticipants" title="Show participants">👥<span class="rail-tip">Participants</span></button>
     <div class="rail-spacer"></div>
@@ -20,17 +20,6 @@
   </nav>
 
   <div class="app-main">
-    <header class="app-header">
-      <div class="header-left">
-        <h1 id="videoTitle">Nook</h1>
-        <span class="badge" id="hostBadge" style="display:none">OWNER</span>
-        <span class="badge badge-admin" id="adminBadge" style="display:none">ADMIN</span>
-      </div>
-      <div class="header-right">
-        <span id="connStatus">● Connected</span>
-      </div>
-    </header>
-
     <div class="main" id="mainLayout">
       <div class="video-section">
         <div class="video-card">
@@ -57,13 +46,13 @@
             </div>
           </div>
           <div class="video-footer">
-            <button id="mediaSourceBtn" class="btn btn-primary" style="display:none">🎬 Change video</button>
+            <h1 id="videoTitle" class="video-title">Nook</h1>
+            <span class="badge" id="hostBadge" style="display:none">OWNER</span>
+            <span class="badge badge-admin" id="adminBadge" style="display:none">ADMIN</span>
             <button id="selectVideoBtn" class="btn">📁 Select Video</button>
             <button id="localVideoBtn" class="btn">📂 Local File (no upload)</button>
             <button id="videoUrlBtn" class="btn">🔗 Video URL</button>
             <input id="hostFileInput" type="file" accept="video/*" style="display:none">
-            <span class="spacer"></span>
-            <button id="toggleChatBtn" class="btn btn-small" title="Show/hide chat">💬 Hide Chat</button>
           </div>
         </div>
       </div>

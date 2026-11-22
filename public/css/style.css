@@ -2,14 +2,15 @@
 /* Nook design system - flame ribbon identity */
 
 :root {
-  --bg: #07070D;
-  --surface: #10121B;
-  --surface-2: #171A25;
-  --surface-3: #202433;
-  --border: #292D3B;
-  --border-soft: rgba(255,255,255,0.055);
-  --text: #E7F1FD;
-  --muted: #A3ADBF;
+  /* Onyx-style: true black base, surfaces only a step brighter */
+  --bg: #000000;
+  --surface: #0A0A0D;
+  --surface-2: #111115;
+  --surface-3: #1A1A20;
+  --border: #23232B;
+  --border-soft: rgba(255,255,255,0.05);
+  --text: #E8E8EC;
+  --muted: #9A9AA6;
   --orange: #F8A838;
   --orange-bright: #F85028;
   --red: #D20A2E;
@@ -203,9 +204,9 @@ a:hover { color: var(--orange-bright); }
 #video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; cursor: pointer; }
 .overlay {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: rgba(7,7,13,.82); color: var(--text); gap: 12px; font-size: 14px; z-index: 8;
+  background: rgba(0,0,0,.86); color: var(--text); gap: 12px; font-size: 14px; z-index: 8;
 }
-.overlay.error { background: rgba(7,7,13,.92); }
+.overlay.error { background: rgba(0,0,0,.94); }
 .spinner {
   width: 38px; height: 38px; border: 3px solid var(--surface-3); border-top-color: var(--orange);
   border-radius: 50%; animation: spin .8s linear infinite;
@@ -223,6 +224,11 @@ a:hover { color: var(--orange-bright); }
 #timeDisplay { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ice); min-width: 84px; text-align: right; }
 .video-footer { display: flex; gap: 8px; align-items: center; padding-top: 14px; flex-wrap: wrap; }
 .video-footer .spacer { flex: 1; }
+.video-title {
+  font-size: 14px; font-weight: 650; color: var(--text);
+  max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-right: 4px;
+}
 /* legacy buttons are replaced by the media-source dialog but stay wired */
 #selectVideoBtn, #localVideoBtn, #videoUrlBtn { display: none !important; }
 
@@ -240,7 +246,7 @@ body.is-resizing { user-select: none; cursor: col-resize; }
 .chat-card { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .chat-header {
   flex: none; height: 56px; display: flex; align-items: center; justify-content: space-between;
-  padding: 0 16px; border-bottom: 1px solid var(--border); background: rgba(7,7,13,.25);
+  padding: 0 16px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,.25);
 }
 .chat-header h2 { font-size: 13.5px; font-weight: 650; display: flex; align-items: center; gap: 9px; }
 #roomInfo { font-size: 11.5px; color: var(--muted); }

@@ -40,8 +40,8 @@ const sendBtn = document.getElementById('sendBtn');
 const usersEl = document.getElementById('users');
 const onlineCount = document.getElementById('onlineCount');
 const toastEl = document.getElementById('toast');
-const toggleChatBtn = document.getElementById('toggleChatBtn');
-const mediaSourceBtn = document.getElementById('mediaSourceBtn');
+const railVideo = document.getElementById('railVideo');
+const railChatToggle = document.getElementById('railChatToggle');
 const mediaSourceModal = document.getElementById('mediaSourceModal');
 const emojiBtn = document.getElementById('emojiBtn');
 const emojiPicker = document.getElementById('emojiPicker');
@@ -83,7 +83,10 @@ function formatTime(sec) {
   const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
-function setConn(msg) { document.getElementById('connStatus').textContent = msg; }
+function setConn(msg) {
+  const el = document.getElementById('connStatus');
+  if (el) el.textContent = msg;
+}
 function showToast(msg) {
   toastEl.textContent = msg;
   toastEl.classList.add('show');
@@ -112,8 +115,8 @@ function appendMessage(msg) {
     lastChatMessage = null;
   } else {
     const sender = lastUserList.find((u) => u.username === msg.username);
-    const grouped = lastChatMessage && lastChatMessage.username === msg.username &&
-      (msg.timestamp - lastChatMessage.timestamp) < 180000;
+    // Show the name/time once at the start of a run, until someone else speaks.
+    const grouped = !!(lastChatMessage && lastChatMessage.username === msg.username);
     if (msg.username === myUsername) div.classList.add('me');
     if (grouped) div.classList.add('grouped');
     if (grouped) {
@@ -212,7 +215,7 @@ function applyMyPermissions(data) {
   hostBadge.style.display = myIsHost ? 'inline-block' : 'none';
   adminBadge.style.display = myRole === 'admin' ? 'inline-block' : 'none';
   setControlsEnabled();
-  mediaSourceBtn.style.display = myIsHost ? 'inline-flex' : 'none';
+  railVideo.style.display = myIsHost ? 'grid' : 'none';
   const railLeaveIcon = document.getElementById('railLeaveIcon');
   const railLeaveTip = document.getElementById('railLeaveTip');
   if (railLeaveIcon) railLeaveIcon.textContent = myIsHost ? '⏻' : '↩';
@@ -763,7 +766,7 @@ function closeLocalFileModal() { localFileModal.style.display = 'none'; }
 localVideoBtn.addEventListener('click', openLocalFileModal);
 
 // Media source dialog (the legacy buttons stay wired underneath)
-mediaSourceBtn.addEventListener('click', () => { mediaSourceModal.style.display = 'flex'; });
+railVideo.addEventListener('click', () => { mediaSourceModal.style.display = 'flex'; });
 document.getElementById('mediaCancel').addEventListener('click', () => { mediaSourceModal.style.display = 'none'; });
 mediaSourceModal.addEventListener('click', (e) => {
   if (e.target === mediaSourceModal) mediaSourceModal.style.display = 'none';
@@ -782,10 +785,7 @@ document.getElementById('mediaUrlBtn').addEventListener('click', () => {
 });
 
 // Workspace rail
-document.getElementById('railChatToggle').addEventListener('click', () => toggleChatBtn.click());
-document.getElementById('railWatch').addEventListener('click', () => {
-  if (mainLayout.classList.contains('chat-collapsed')) toggleChatBtn.click();
-});
+railChatToggle.addEventListener('click', () => setChatHidden(!mainLayout.classList.contains('chat-collapsed')));
 
 document.getElementById('localFileCancel').addEventListener('click', closeLocalFileModal);
 localFileModal.addEventListener('click', (e) => { if (e.target === localFileModal) closeLocalFileModal(); });
@@ -850,11 +850,12 @@ document.addEventListener('click', (e) => {
 // Chat panel: hide/show and resize -----------------------------------------
 function setChatHidden(hidden) {
   mainLayout.classList.toggle('chat-collapsed', hidden);
-  toggleChatBtn.textContent = hidden ? '💬 Show Chat' : '💬 Hide Chat';
-  toggleChatBtn.setAttribute('aria-expanded', String(!hidden));
+  if (railChatToggle) {
+    railChatToggle.classList.toggle('active', !hidden);
+    railChatToggle.setAttribute('aria-expanded', String(!hidden));
+  }
   localStorage.setItem('nook_chat_hidden', hidden ? '1' : '0');
 }
-toggleChatBtn.addEventListener('click', () => setChatHidden(!mainLayout.classList.contains('chat-collapsed')));
 setChatHidden(localStorage.getItem('nook_chat_hidden') === '1');
 
 const CHAT_MIN = 280, CHAT_MAX = 620, VIDEO_MIN = 360;

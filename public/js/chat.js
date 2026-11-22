@@ -157,8 +157,7 @@ function appendMessage(msg) {
     lastChatMessage = null;
   } else {
     const sender = lastUserList.find((u) => u.username === msg.username);
-    const grouped = lastChatMessage && lastChatMessage.username === msg.username &&
-      (msg.timestamp - lastChatMessage.timestamp) < 180000;
+    const grouped = !!(lastChatMessage && lastChatMessage.username === msg.username);
     if (msg.username === myUsername) div.classList.add('me');
     if (grouped) div.classList.add('grouped');
     if (grouped) {
