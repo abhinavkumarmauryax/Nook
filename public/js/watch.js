@@ -42,6 +42,11 @@ const onlineCount = document.getElementById('onlineCount');
 const toastEl = document.getElementById('toast');
 const railVideo = document.getElementById('railVideo');
 const railChatToggle = document.getElementById('railChatToggle');
+function setIcon(el, name) {
+  if (!el) return;
+  el.dataset.icon = name;
+  if (window.ICONS && ICONS[name]) el.innerHTML = ICONS[name];
+}
 const mediaSourceModal = document.getElementById('mediaSourceModal');
 const emojiBtn = document.getElementById('emojiBtn');
 const emojiPicker = document.getElementById('emojiPicker');
@@ -216,10 +221,9 @@ function applyMyPermissions(data) {
   adminBadge.style.display = myRole === 'admin' ? 'inline-block' : 'none';
   setControlsEnabled();
   railVideo.style.display = myIsHost ? 'grid' : 'none';
-  const railLeaveIcon = document.getElementById('railLeaveIcon');
-  const railLeaveTip = document.getElementById('railLeaveTip');
-  if (railLeaveIcon) railLeaveIcon.textContent = myIsHost ? '⏻' : '↩';
-  if (railLeaveTip) railLeaveTip.textContent = myIsHost ? 'Stop server' : 'Leave session';
+  const railLeave = document.getElementById('railLeave');
+  setIcon(railLeave, myIsHost ? 'stop' : 'leave');
+  if (railLeave) railLeave.setAttribute('aria-label', myIsHost ? 'Stop server' : 'Leave session');
   setMutedState(!!data.muted);
   renderUsers(lastUserList);
   enforcePlayback();
@@ -490,7 +494,7 @@ function enforcePlayback() {
   } catch {}
   correcting = false;
 }
-function updatePlayPauseIcon() { playPauseBtn.textContent = video.paused ? '▶' : '⏸'; }
+function updatePlayPauseIcon() { setIcon(playPauseBtn, video.paused ? 'play' : 'pause'); }
 
 video.addEventListener('loadedmetadata', () => {
   if (loadTimeout) { clearTimeout(loadTimeout); loadTimeout = null; }
@@ -596,7 +600,7 @@ playPauseBtn.addEventListener('click', () => {
 });
 muteBtn.addEventListener('click', () => {
   video.muted = !video.muted;
-  muteBtn.textContent = video.muted ? '🔇' : '🔊';
+  setIcon(muteBtn, video.muted ? 'volumeOff' : 'volume');
 });
 volumeRange.addEventListener('input', () => { video.volume = volumeRange.value; });
 seekRange.addEventListener('mousedown', () => { seeking = true; });
@@ -616,9 +620,20 @@ seekRange.addEventListener('change', () => {
   catch { userInitiated = false; }
 });
 fullscreenBtn.addEventListener('click', () => {
-  const el = videoWrapper;
-  if (el.requestFullscreen) el.requestFullscreen();
-  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  } else {
+    const el = videoWrapper;
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  }
+});
+document.addEventListener('fullscreenchange', () => {
+  setIcon(fullscreenBtn, document.fullscreenElement ? 'fullscreenExit' : 'fullscreen');
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  setIcon(fullscreenBtn, document.webkitFullscreenElement ? 'fullscreenExit' : 'fullscreen');
 });
 
 // Video URL ----------------------------------------------------------------
@@ -1018,7 +1033,37 @@ socket.on('playback:control', (data) => {
   applyPlaybackState({ ...authoritative, timestamp: data.timestamp });
 });
 
+// Accent theme -------------------------------------------------------------
+const THEMES = [
+  { key: 'orange', name: 'Flame orange' },
+  { key: 'white', name: 'Ice white' },
+  { key: 'blue', name: 'Cobalt blue' },
+  { key: 'cyan', name: 'Cyan' },
+  { key: 'violet', name: 'Violet' },
+  { key: 'mint', name: 'Mint' },
+  { key: 'rose', name: 'Rose' },
+];
+function applyTheme(key) {
+  document.documentElement.dataset.theme = key;
+  localStorage.setItem('nook_theme', key);
+}
+applyTheme(localStorage.getItem('nook_theme') || 'orange');
+document.getElementById('railTheme').addEventListener('click', () => {
+  const current = document.documentElement.dataset.theme;
+  const idx = THEMES.findIndex((t) => t.key === current);
+  const next = THEMES[(idx + 1) % THEMES.length];
+  applyTheme(next.key);
+  showToast('Accent: ' + next.name);
+});
+
+// Chat pop-out -------------------------------------------------------------
+document.getElementById('chatPopoutBtn').addEventListener('click', () => {
+  if (!mySessionToken) { showToast('Reconnecting — try again in a moment'); return; }
+  window.open(`${location.origin}/chat#${encodeURIComponent(mySessionToken)}`, 'nook_chat', 'width=430,height=760');
+});
+
 // init
+if (window.applyIcons) applyIcons();
 setControlsEnabled();
 scheduleControlsHide(); // start the idle countdown on load
 if (!video.canPlayType('video/mp4') && !video.canPlayType('video/webm')) {

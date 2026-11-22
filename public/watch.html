@@ -12,11 +12,12 @@
   <nav class="rail" aria-label="Nook navigation">
     <img class="brand-logo rail-logo" src="/assets/nook-logo.svg" alt="Nook">
     <div class="rail-divider"></div>
-    <button class="rail-btn" id="railVideo" title="Change video" style="display:none">🎬<span class="rail-tip">Change video</span></button>
-    <button class="rail-btn" id="railChatToggle" title="Show/hide chat">💬<span class="rail-tip">Show / hide chat</span></button>
-    <button class="rail-btn" id="railParticipants" title="Show participants">👥<span class="rail-tip">Participants</span></button>
+    <button class="rail-btn" id="railVideo" data-icon="video" aria-label="Change video" style="display:none"></button>
+    <button class="rail-btn" id="railChatToggle" data-icon="chat" aria-label="Show or hide chat"></button>
+    <button class="rail-btn" id="railParticipants" data-icon="users" aria-label="Show participants"></button>
+    <button class="rail-btn" id="railTheme" data-icon="palette" aria-label="Change accent colour"></button>
     <div class="rail-spacer"></div>
-    <button class="rail-btn" id="railLeave" title="Leave session"><span id="railLeaveIcon">↩</span><span class="rail-tip" id="railLeaveTip">Leave session</span></button>
+    <button class="rail-btn" id="railLeave" data-icon="leave" aria-label="Leave session"></button>
   </nav>
 
   <div class="app-main">
@@ -37,12 +38,12 @@
               </div>
             </div>
             <div class="controls">
-              <button id="playPauseBtn" class="icon-btn" title="Play/Pause">▶</button>
-              <button id="muteBtn" class="icon-btn" title="Mute/unmute">🔊</button>
+              <button id="playPauseBtn" class="icon-btn" data-icon="play" title="Play/Pause" aria-label="Play or pause"></button>
+              <button id="muteBtn" class="icon-btn" data-icon="volume" title="Mute/unmute" aria-label="Mute or unmute"></button>
               <input id="volumeRange" type="range" min="0" max="1" step="0.1" value="1" aria-label="Volume">
               <input id="seekRange" type="range" min="0" max="100" value="0" aria-label="Timeline" title="Only the owner or an admin can seek">
               <span id="timeDisplay">0:00 / 0:00</span>
-              <button id="fullscreenBtn" class="icon-btn" title="Fullscreen">⛶</button>
+              <button id="fullscreenBtn" class="icon-btn" data-icon="fullscreen" title="Fullscreen" aria-label="Toggle fullscreen"></button>
             </div>
           </div>
           <div class="video-footer">
@@ -63,16 +64,19 @@
         <div class="chat-card">
           <div class="chat-header">
             <h2>💬 <span id="chatLabel">Room chat</span></h2>
-            <span id="roomInfo">Online: <span id="onlineCount">0</span></span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="roomInfo">Online: <span id="onlineCount">0</span></span>
+              <button id="chatPopoutBtn" class="icon-btn" data-icon="popout" title="Open chat in a new window" aria-label="Pop out chat" style="width:28px;height:28px"></button>
+            </div>
           </div>
           <div id="messages" class="messages"></div>
           <div class="chat-footer">
             <div class="composer-wrap">
               <input id="messageInput" type="text" placeholder="Type a message…" maxlength="500">
-              <button id="emojiBtn" class="emoji-btn" title="Emoji">☺</button>
+              <button id="emojiBtn" class="emoji-btn" data-icon="emoji" title="Emoji" aria-label="Emoji"></button>
               <div id="emojiPicker" class="emoji-picker" style="display:none"></div>
             </div>
-            <button id="sendBtn" class="btn btn-primary">Send</button>
+            <button id="sendBtn" class="btn btn-primary" data-icon="send" aria-label="Send"></button>
           </div>
         </div>
       </div>
@@ -83,7 +87,7 @@
 <div id="participantsPopup" class="participants-popup" style="display:none">
   <div class="popup-head">
     <h3>Participants <span id="popupCount">0</span></h3>
-    <button id="closeParticipants" class="popup-close" title="Close">✕</button>
+    <button id="closeParticipants" class="popup-close" data-icon="close" title="Close" aria-label="Close"></button>
   </div>
   <ul id="users"></ul>
 </div>
@@ -119,6 +123,7 @@
 <div id="toast"></div>
 <div id="modalRoot"></div>
 <script src="/js/socket.io.js"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/modal.js"></script>
 <script src="/js/hls.min.js"></script>
 <script src="/js/watch.js"></script>
