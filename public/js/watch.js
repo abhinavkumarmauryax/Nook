@@ -695,23 +695,6 @@ document.addEventListener('fullscreenchange', () => {
   setIcon(fullscreenBtn, document.fullscreenElement ? 'fullscreenExit' : 'fullscreen');
 });
 
-// Hide the pointer in fullscreen after 5s of no movement/click, so it never
-// sits over the picture. Any interaction brings it straight back.
-let idleCursorTimer = null;
-function revealCursor() {
-  document.documentElement.classList.remove('cursor-hidden');
-  clearTimeout(idleCursorTimer);
-  if (document.fullscreenElement || document.webkitFullscreenElement) {
-    idleCursorTimer = setTimeout(() => {
-      document.documentElement.classList.add('cursor-hidden');
-    }, 5000);
-  }
-}
-['mousemove', 'pointerdown', 'click', 'keydown'].forEach((evt) => {
-  document.addEventListener(evt, revealCursor, { passive: true });
-});
-document.addEventListener('fullscreenchange', revealCursor);
-window.addEventListener('beforeunload', () => clearTimeout(idleCursorTimer));
 document.addEventListener('webkitfullscreenchange', () => {
   setIcon(fullscreenBtn, document.webkitFullscreenElement ? 'fullscreenExit' : 'fullscreen');
 });

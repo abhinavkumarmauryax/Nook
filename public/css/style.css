@@ -18,7 +18,7 @@
   --brand: linear-gradient(115deg, var(--orange) 0%, var(--orange-bright) 55%, var(--red) 100%);
   --glass: rgba(10,10,13,.72);
   --glass-strong: rgba(17,17,21,.82);
-  --cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cpath d='M4 2 L4 21 L9.5 15.5 L13.5 23 L16.5 21.5 L12.5 14.5 L20 13 Z' fill='none' stroke='%23ffffff' stroke-width='3.4' stroke-linejoin='round'/%3E%3Cpath d='M4 2 L4 21 L9.5 15.5 L13.5 23 L16.5 21.5 L12.5 14.5 L20 13 Z' fill='none' stroke='%23000000' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") 4 2, auto;
+  --cursor: url('/assets/cursor.svg') 2 2, auto;
   --success: #3ddc97;
   --danger: #D20A2E;
   --ice: #E7F1FD;
@@ -47,29 +47,7 @@ body {
 }
 button { cursor: var(--cursor); font: inherit; border: none; background: none; color: inherit; }
 a { cursor: var(--cursor); }
-html.cursor-hidden, html.cursor-hidden * { cursor: none !important; }
-
-/* Direction-aware flow cursor. The native cursor is hidden only after the
-   script actually initialises the custom one, so it can never vanish. */
-html.has-flow-cursor, html.has-flow-cursor * { cursor: none !important; }
-html.has-flow-cursor input, html.has-flow-cursor textarea { cursor: text !important; }
-#nookCursor {
-  position: fixed; inset: 0; z-index: 9999; pointer-events: none;
-  opacity: 0; transition: opacity .18s;
-}
-#nookCursor .cursor-arrow, #nookCursor .cursor-wave {
-  position: fixed; left: 0; top: 0; width: 26px; height: 26px; display: block;
-  will-change: transform;
-  color: #fff;
-  filter: drop-shadow(0 0 2px rgba(0,0,0,.95));
-}
-#nookCursor svg { width: 100%; height: 100%; display: block; }
-#nookCursor .cursor-wave { color: var(--orange); }
-#nookCursor .cursor-wave { opacity: .12; }
-#nookCursor .cursor-wave[data-lag="2"] { opacity: .08; }
-#nookCursor .cursor-wave[data-lag="3"] { opacity: .05; }
-html.cursor-hidden #nookCursor { opacity: 0 !important; }
-@media (pointer: coarse) { #nookCursor { display: none; } }
+input, textarea { cursor: text !important; }
 button:disabled { cursor: not-allowed; opacity: .5; }
 a { color: var(--orange); text-decoration: none; }
 a:hover { color: var(--orange-bright); }
@@ -503,7 +481,7 @@ body.is-resizing { user-select: none; cursor: col-resize; }
   border-top: 1px solid var(--border); flex: none;
 }
 .standalone-chat .users-list { max-height: 32vh; }
-.chat-footnote { display: flex; justify-content: space-between; padding: 9px 14px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--border); }
+.chat-footnote { display: flex; justify-content: flex-start; padding: 9px 14px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--border); }
 .chat-footnote a { color: var(--ice-soft); }
 .chat-denied { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; padding: 32px; }
 .chat-denied h3 { font-size: 20px; }
@@ -557,5 +535,4 @@ body.is-resizing { user-select: none; cursor: col-resize; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
-  #nookCursor { display: none; }
 }
