@@ -10,14 +10,16 @@
 <body>
 <div class="join-page">
   <div class="card">
-    <h1 class="brand"><img class="brand-logo" src="/assets/nook-logo.svg" alt="Nook"> Join Session</h1>
-    <p>Enter a username to join the watch party</p>
+    <img class="brand-logo" src="/assets/nook-logo.svg" alt="Nook">
+    <h1 class="wordmark">Join Nook</h1>
+    <p>Enter a username to join the watch room</p>
     <div class="form-group">
       <label for="usernameInput">Username</label>
       <input type="text" id="usernameInput" maxlength="32" placeholder="e.g. Alex" autocomplete="off">
     </div>
     <div id="error" class="error"></div>
-    <button id="joinBtn" class="btn btn-primary" style="width:100%">Join</button>
+    <button id="joinBtn" class="btn btn-primary" style="width:100%">Join room</button>
+    <p class="empty" style="margin-top:18px">No account needed. Usernames must be unique within the session.</p>
   </div>
 </div>
 <script src="/js/socket.io.js"></script>

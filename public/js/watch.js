@@ -42,6 +42,11 @@ const onlineCount = document.getElementById('onlineCount');
 const toastEl = document.getElementById('toast');
 const leaveBtn = document.getElementById('leaveBtn');
 const toggleChatBtn = document.getElementById('toggleChatBtn');
+const mediaSourceBtn = document.getElementById('mediaSourceBtn');
+const mediaSourceModal = document.getElementById('mediaSourceModal');
+const emojiBtn = document.getElementById('emojiBtn');
+const emojiPicker = document.getElementById('emojiPicker');
+const viewerInfo = document.getElementById('viewerInfo');
 
 let myIsHost = false;
 let myRole = 'member';
@@ -96,28 +101,63 @@ function isNearBottom() {
   return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 100;
 }
 function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+let lastChatMessage = null;
 function appendMessage(msg) {
   const stick = isNearBottom();
   const div = document.createElement('div');
   div.className = 'message ' + msg.type;
-  const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-  meta.textContent = time;
   if (msg.type === 'system') {
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
     bubble.textContent = msg.text;
-    div.append(bubble, meta);
+    div.appendChild(bubble);
+    lastChatMessage = null;
   } else {
+    const sender = lastUserList.find((u) => u.username === msg.username);
+    const grouped = lastChatMessage && lastChatMessage.username === msg.username &&
+      (msg.timestamp - lastChatMessage.timestamp) < 180000;
     if (msg.username === myUsername) div.classList.add('me');
-    const name = document.createElement('span');
-    name.className = 'username';
-    name.textContent = msg.username + ':';
-    const bubble = document.createElement('span');
+    if (grouped) div.classList.add('grouped');
+    if (grouped) {
+      const spacer = document.createElement('span');
+      spacer.style.cssText = 'width:32px;flex:none';
+      div.appendChild(spacer);
+    } else {
+      div.appendChild(makeAvatar(sender || { username: msg.username, role: 'member' }));
+    }
+    const body = document.createElement('div');
+    body.className = 'message-body';
+    if (!grouped) {
+      const head = document.createElement('div');
+      head.className = 'message-head';
+      const name = document.createElement('span');
+      name.className = 'username';
+      name.textContent = msg.username;
+      const meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      head.append(name, meta);
+      if (sender) {
+        const tag = document.createElement('span');
+        tag.className = 'role-tag role-tag-' + sender.role;
+        tag.textContent = roleLabel(sender.role);
+        head.appendChild(tag);
+      }
+      body.appendChild(head);
+    }
+    const bubble = document.createElement('div');
     bubble.className = 'bubble';
     bubble.textContent = msg.text;
-    div.append(name, bubble, meta);
+    body.appendChild(bubble);
+    div.appendChild(body);
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    const copy = document.createElement('button');
+    copy.textContent = 'Copy';
+    copy.addEventListener('click', () => navigator.clipboard && navigator.clipboard.writeText(msg.text));
+    actions.appendChild(copy);
+    div.appendChild(actions);
+    lastChatMessage = msg;
   }
   messagesEl.appendChild(div);
   if (stick) scrollToBottom();
@@ -174,9 +214,7 @@ function applyMyPermissions(data) {
   hostBadge.style.display = myIsHost ? 'inline-block' : 'none';
   adminBadge.style.display = myRole === 'admin' ? 'inline-block' : 'none';
   setControlsEnabled();
-  selectVideoBtn.style.display = myIsHost ? 'inline-flex' : 'none';
-  localVideoBtn.style.display = myIsHost ? 'inline-flex' : 'none';
-  videoUrlBtn.style.display = myIsHost ? 'inline-flex' : 'none';
+  mediaSourceBtn.style.display = myIsHost ? 'inline-flex' : 'none';
   setMutedState(!!data.muted);
   renderUsers(lastUserList);
   enforcePlayback();
@@ -191,46 +229,82 @@ function renderUsers(list) {
   lastUserList = list || [];
   usersEl.innerHTML = '';
   onlineCount.textContent = lastUserList.length;
+  if (viewerInfo) viewerInfo.textContent = lastUserList.length + ' watching';
   lastUserList.forEach((u) => {
     const li = document.createElement('li');
     li.className = 'role-' + u.role;
+    li.appendChild(makeAvatar(u));
     const name = document.createElement('span');
     name.className = 'user-name';
-    name.innerHTML = `<span class="dot"></span>${escapeHtml(u.username)}` +
+    name.innerHTML = `${escapeHtml(u.username)}` +
       `<span class="role-tag role-tag-${u.role}">${roleLabel(u.role)}</span>` +
       (u.muted ? ' <span class="muted-tag">🔇 muted</span>' : '');
     li.appendChild(name);
-
-    const canModerateHere = u.role !== 'owner' &&
-      (myRole === 'owner' || (myRole === 'admin' && u.role === 'member'));
-    if (canModerateHere) {
-      li.appendChild(actionButton('mute', u.muted ? 'Unmute' : 'Mute', u.id));
-      li.appendChild(actionButton('kick', 'Kick', u.id, 'danger'));
-    }
-    if (myRole === 'owner' && u.role !== 'owner') {
-      li.appendChild(actionButton(u.role === 'admin' ? 'demote' : 'promote',
-        u.role === 'admin' ? 'Demote' : 'Make admin', u.id));
-      li.appendChild(actionButton('transfer', 'Transfer', u.id));
+    if (availableActions(u).length) {
+      const menu = document.createElement('button');
+      menu.className = 'menu-btn';
+      menu.dataset.action = 'menu';
+      menu.dataset.id = u.id;
+      menu.title = 'Manage participant';
+      menu.textContent = '⋯';
+      li.appendChild(menu);
     }
     usersEl.appendChild(li);
   });
 }
-function actionButton(action, label, id, cls) {
-  const b = document.createElement('button');
-  b.className = 'user-action' + (cls ? ' ' + cls : '');
-  b.dataset.action = action;
-  b.dataset.id = id;
-  b.textContent = label;
-  return b;
+function initials(name) {
+  return String(name || '?').trim().split(/[\s_.\-]+/).filter(Boolean)
+    .slice(0, 2).map((x) => x[0].toUpperCase()).join('') || '?';
 }
-
-usersEl.addEventListener('click', async (e) => {
-  const btn = e.target.closest('button[data-action]');
-  if (!btn) return;
-  const target = lastUserList.find((u) => u.id === btn.dataset.id);
+function makeAvatar(u) {
+  const a = document.createElement('span');
+  a.className = 'avatar avatar-' + u.role;
+  a.textContent = initials(u.username);
+  const p = document.createElement('span');
+  p.className = 'presence';
+  a.appendChild(p);
+  return a;
+}
+function availableActions(u) {
+  const acts = [];
+  if (u.role !== 'owner' && (myRole === 'owner' || (myRole === 'admin' && u.role === 'member'))) {
+    acts.push(['mute', u.muted ? 'Unmute' : 'Mute', false]);
+    acts.push(['kick', 'Kick participant', true]);
+  }
+  if (myRole === 'owner' && u.role !== 'owner') {
+    acts.push([u.role === 'admin' ? 'demote' : 'promote',
+      u.role === 'admin' ? 'Demote admin' : 'Make admin', false]);
+    acts.push(['transfer', 'Transfer ownership', false]);
+  }
+  return acts;
+}
+function closeUserMenu() {
+  const m = document.getElementById('userContextMenu');
+  if (m) m.remove();
+}
+function openUserMenu(target, x, y) {
+  closeUserMenu();
+  const menu = document.createElement('div');
+  menu.className = 'context-menu';
+  menu.id = 'userContextMenu';
+  const title = document.createElement('div');
+  title.className = 'ctx-title';
+  title.textContent = target.username;
+  menu.appendChild(title);
+  availableActions(target).forEach(([action, label, danger]) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    if (danger) b.className = 'danger';
+    b.addEventListener('click', () => { closeUserMenu(); runModerationAction(action, target.id); });
+    menu.appendChild(b);
+  });
+  document.body.appendChild(menu);
+  menu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
+  menu.style.top = Math.min(y, window.innerHeight - menu.offsetHeight - 10) + 'px';
+}
+async function runModerationAction(action, id) {
+  const target = lastUserList.find((u) => u.id === id);
   if (!target) return;
-  const action = btn.dataset.action;
-
   if (action === 'kick') {
     const ok = await AppModal.confirm({
       title: 'Remove participant',
@@ -247,17 +321,31 @@ usersEl.addEventListener('click', async (e) => {
     });
     if (!ok) return;
   }
-
   const eventMap = {
     mute: 'host:mute', kick: 'host:kick', promote: 'host:role', demote: 'host:role',
     transfer: 'host:transfer:request',
   };
-  const payload = { targetId: btn.dataset.id };
+  const payload = { targetId: id };
   if (action === 'promote' || action === 'demote') payload.action = action;
   socket.emit(eventMap[action], payload, (resp) => {
     if (!resp || !resp.ok) showToast((resp && resp.message) || 'Action failed');
     else if (action === 'transfer') showToast(`Transfer request sent to ${target.username}`);
   });
+}
+usersEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  if (btn.dataset.action === 'menu') {
+    const target = lastUserList.find((u) => u.id === btn.dataset.id);
+    const r = btn.getBoundingClientRect();
+    if (target) openUserMenu(target, r.left, r.bottom + 4);
+    return;
+  }
+  runModerationAction(btn.dataset.action, btn.dataset.id);
+});
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.context-menu') || e.target.closest('.menu-btn')) return;
+  closeUserMenu();
 });
 
 // Video source -------------------------------------------------------------
@@ -670,6 +758,34 @@ function openLocalFileModal() {
 }
 function closeLocalFileModal() { localFileModal.style.display = 'none'; }
 localVideoBtn.addEventListener('click', openLocalFileModal);
+
+// Media source dialog (the legacy buttons stay wired underneath)
+mediaSourceBtn.addEventListener('click', () => { mediaSourceModal.style.display = 'flex'; });
+document.getElementById('mediaCancel').addEventListener('click', () => { mediaSourceModal.style.display = 'none'; });
+mediaSourceModal.addEventListener('click', (e) => {
+  if (e.target === mediaSourceModal) mediaSourceModal.style.display = 'none';
+});
+document.getElementById('mediaLocalBtn').addEventListener('click', () => {
+  mediaSourceModal.style.display = 'none';
+  openLocalFileModal();
+});
+document.getElementById('mediaUploadBtn').addEventListener('click', () => {
+  mediaSourceModal.style.display = 'none';
+  hostFileInput.click();
+});
+document.getElementById('mediaUrlBtn').addEventListener('click', () => {
+  mediaSourceModal.style.display = 'none';
+  videoUrlBtn.click();
+});
+
+// Workspace rail
+document.getElementById('railChat').addEventListener('click', () => openPopout());
+document.getElementById('railSetup').addEventListener('click', () => window.open('http://localhost:3000', '_blank'));
+document.getElementById('railLeave').addEventListener('click', () => leaveBtn.click());
+document.getElementById('railWatch').addEventListener('click', () => {
+  if (mainLayout.classList.contains('chat-collapsed')) toggleChatBtn.click();
+});
+
 document.getElementById('localFileCancel').addEventListener('click', closeLocalFileModal);
 localFileModal.addEventListener('click', (e) => { if (e.target === localFileModal) closeLocalFileModal(); });
 document.getElementById('browseHomeBtn').addEventListener('click', () => loadBrowse(''));
@@ -706,6 +822,28 @@ sendBtn.addEventListener('click', () => {
 });
 messageInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); sendBtn.click(); }
+});
+
+// Emoji picker
+const EMOJIS = ['😀','😂','🥹','😍','🤔','👍','👎','🔥','✨','🎉','❤️','🙏','👀','🚀','💬','😎','🥳','😅','🤝','💡','🎬','🍿','😭','🙌','💪','⭐','👋','🤣','😴','🎧'];
+EMOJIS.forEach((em) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = em;
+  b.addEventListener('click', () => {
+    const start = messageInput.selectionStart ?? messageInput.value.length;
+    messageInput.value = messageInput.value.slice(0, start) + em + messageInput.value.slice(messageInput.selectionEnd ?? start);
+    messageInput.focus();
+    messageInput.setSelectionRange(start + em.length, start + em.length);
+  });
+  emojiPicker.appendChild(b);
+});
+emojiBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'grid' : 'none';
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#emojiPicker') && e.target !== emojiBtn) emojiPicker.style.display = 'none';
 });
 
 // Chat panel: hide/show and resize -----------------------------------------

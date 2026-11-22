@@ -83,9 +83,13 @@ function renderUsers(list) {
   lastUserList.forEach((u) => {
     const li = document.createElement('li');
     li.className = 'role-' + u.role;
+    const av = document.createElement('span');
+    av.className = 'avatar avatar-' + u.role;
+    av.textContent = String(u.username || '?').trim().split(/[\s_.\-]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('') || '?';
+    li.appendChild(av);
     const name = document.createElement('span');
     name.className = 'user-name';
-    name.innerHTML = `<span class="dot"></span>${escapeHtml(u.username)}` +
+    name.innerHTML = `${escapeHtml(u.username)}` +
       `<span class="role-tag role-tag-${u.role}">${roleLabel(u.role)}</span>` +
       (u.muted ? ' <span class="muted-tag">🔇 muted</span>' : '');
     li.appendChild(name);
@@ -145,28 +149,53 @@ function appendMessage(msg) {
   const stick = isNearBottom();
   const div = document.createElement('div');
   div.className = 'message ' + msg.type;
-  const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-  meta.textContent = time;
   if (msg.type === 'system') {
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
     bubble.textContent = msg.text;
-    div.append(bubble, meta);
+    div.appendChild(bubble);
+    lastChatMessage = null;
   } else {
+    const sender = lastUserList.find((u) => u.username === msg.username);
+    const grouped = lastChatMessage && lastChatMessage.username === msg.username &&
+      (msg.timestamp - lastChatMessage.timestamp) < 180000;
     if (msg.username === myUsername) div.classList.add('me');
-    const name = document.createElement('span');
-    name.className = 'username';
-    name.textContent = msg.username + ':';
-    const bubble = document.createElement('span');
+    if (grouped) div.classList.add('grouped');
+    if (grouped) {
+      const sp = document.createElement('span');
+      sp.style.cssText = 'width:32px;flex:none';
+      div.appendChild(sp);
+    } else {
+      const av = document.createElement('span');
+      av.className = 'avatar avatar-' + (sender ? sender.role : 'member');
+      av.textContent = String(msg.username || '?').trim().split(/[\s_.\-]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('') || '?';
+      div.appendChild(av);
+    }
+    const body = document.createElement('div');
+    body.className = 'message-body';
+    if (!grouped) {
+      const head = document.createElement('div');
+      head.className = 'message-head';
+      const name = document.createElement('span');
+      name.className = 'username';
+      name.textContent = msg.username;
+      const meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      head.append(name, meta);
+      body.appendChild(head);
+    }
+    const bubble = document.createElement('div');
     bubble.className = 'bubble';
     bubble.textContent = msg.text;
-    div.append(name, bubble, meta);
+    body.appendChild(bubble);
+    div.appendChild(body);
+    lastChatMessage = msg;
   }
   messagesEl.appendChild(div);
   if (stick) scrollToBottom();
 }
+let lastChatMessage = null;
 
 sendBtn.addEventListener('click', () => {
   const text = messageInput.value.trim();
@@ -178,6 +207,26 @@ sendBtn.addEventListener('click', () => {
 });
 messageInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); sendBtn.click(); }
+});
+const emojiBtn = document.getElementById('emojiBtn');
+const emojiPicker = document.getElementById('emojiPicker');
+['😀','😂','🥹','😍','🤔','👍','🔥','✨','🎉','❤️','🙏','👀','🚀','💬','😎','🥳','💡','🎬','🍿','👋'].forEach((em) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = em;
+  b.addEventListener('click', () => {
+    const start = messageInput.selectionStart ?? messageInput.value.length;
+    messageInput.value = messageInput.value.slice(0, start) + em + messageInput.value.slice(messageInput.selectionEnd ?? start);
+    messageInput.focus();
+  });
+  emojiPicker.appendChild(b);
+});
+emojiBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'grid' : 'none';
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#emojiPicker') && e.target !== emojiBtn) emojiPicker.style.display = 'none';
 });
 
 document.getElementById('toggleUsersBtn').addEventListener('click', () => {

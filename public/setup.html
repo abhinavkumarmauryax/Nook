@@ -9,12 +9,28 @@
 </head>
 <body>
 <div class="setup-page">
-  <header>
-    <h1 class="brand"><img class="brand-logo" src="/assets/nook-logo.svg" alt="Nook"> Nook</h1>
-    <p>Host a synchronized video + chat session on your local network</p>
+  <header class="setup-hero">
+    <img class="brand-logo" src="/assets/nook-logo.svg" alt="Nook">
+    <h1 class="wordmark">Nook</h1>
+    <p>Host a private watch room on your own machine. Everyone on the same network watches in sync and chats in real time — no cloud, no accounts.</p>
+    <div class="hero-badge"><i></i> Self-hosted · Free · Yours</div>
+    <div class="quick-actions">
+      <button class="quick-card" id="hostQuick">
+        <strong>⚡ Host a server</strong>
+        <span>Configure a port and start a room</span>
+      </button>
+      <div class="quick-card">
+        <strong>🔗 Join a server</strong>
+        <span>Enter the host's address and port</span>
+        <div class="join-quick">
+          <input type="text" id="joinAddressInput" placeholder="192.168.1.10:3001" aria-label="Host address">
+          <button class="btn btn-small btn-primary" id="joinQuickBtn">Join</button>
+        </div>
+      </div>
+    </div>
   </header>
 
-  <section class="card">
+  <section class="card" id="hostCard">
     <h2>Streaming server</h2>
     <div class="row">
       <label for="portInput">Port</label>
@@ -24,59 +40,41 @@
       <button id="startBtn" class="btn btn-primary">Start Server</button>
       <button id="stopBtn" class="btn btn-danger" disabled>Stop Server</button>
     </div>
-    <div class="row">
-      <span class="status" id="status">Stopped</span>
-    </div>
+    <div class="row"><span class="status" id="status">Stopped</span></div>
     <div id="error" class="error"></div>
   </section>
 
   <section class="card" id="networkInfo" style="display:none">
     <h2>Joining information</h2>
     <div class="row">
-      <label>Session URL (share this with participants)</label>
-      <div class="url-row">
-        <span id="urlDisplay">—</span>
-        <button id="copyUrlBtn" class="btn btn-small">Copy</button>
-      </div>
+      <label>Session URL — share with participants</label>
+      <div class="url-row"><span id="urlDisplay">—</span><button id="copyUrlBtn" class="btn btn-small">Copy</button></div>
     </div>
     <div class="row">
       <label>Standalone chat URL (Pop Out Chat)</label>
-      <div class="url-row">
-        <span id="chatUrlDisplay">—</span>
-        <button id="copyChatUrlBtn" class="btn btn-small">Copy</button>
-      </div>
+      <div class="url-row"><span id="chatUrlDisplay">—</span><button id="copyChatUrlBtn" class="btn btn-small">Copy</button></div>
     </div>
-    <div class="row">
-      <label>Local IP addresses</label>
-      <span id="ipsDisplay">—</span>
-    </div>
-    <div class="row">
-      <label>Binding</label>
-      <span style="color:var(--muted)">0.0.0.0 — all network interfaces</span>
-    </div>
+    <div class="row"><label>Local IP addresses</label><span id="ipsDisplay">—</span></div>
+    <div class="row"><label>Binding</label><span class="empty">0.0.0.0 — all network interfaces</span></div>
   </section>
 
   <section class="card">
     <h2>Video</h2>
     <div id="videoInfo" style="display:none">
-      <strong>Selected:</strong> <span id="videoName"></span>
-      &nbsp;<span id="videoSize"></span>
+      <strong>Selected:</strong> <span id="videoName"></span> <span id="videoSize"></span>
     </div>
-    <p class="empty">After opening the Watch Session, the owner can choose a local file with <strong>📁 Select Video</strong> or share a direct media link with <strong>🔗 Video URL</strong>. Local files stay on this computer — nothing is uploaded to the internet.</p>
+    <p class="empty">Inside the watch room, the owner can stream a local file instantly, upload one, or use a direct media URL. Local files stay on this computer.</p>
   </section>
 
   <section class="card">
     <h2>Participants</h2>
-    <div class="row">
-      <span id="participantCount">0</span> connected
-    </div>
+    <div class="row"><span id="participantCount">0</span><span class="empty">connected</span></div>
   </section>
 
   <section class="card">
     <h2>Host session</h2>
-    <p>Open the watch interface below to join as the host. Other devices open the Session URL above, enter a username, and join.</p>
+    <p class="empty">Open the watch interface to join as owner. Others open the Session URL above and pick a username.</p>
     <button id="openWatchBtn" class="btn btn-primary" disabled>Open Watch Session (Host)</button>
-    <p class="empty">Tip: use a phone on the same Wi-Fi to test joining.</p>
   </section>
 </div>
 <script src="/js/setup.js"></script>

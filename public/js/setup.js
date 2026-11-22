@@ -133,6 +133,20 @@ openWatchBtn.addEventListener('click', () => {
   window.open(`${url}/watch?host=${token || ''}`, '_blank');
 });
 
+document.getElementById('hostQuick').addEventListener('click', () => {
+  document.getElementById('hostCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  portInput.focus();
+});
+document.getElementById('joinQuickBtn').addEventListener('click', () => {
+  const value = document.getElementById('joinAddressInput').value.trim();
+  if (!value) return showError(errorEl, 'Enter the host address, for example 192.168.1.10:3001');
+  const address = /^https?:\/\//i.test(value) ? value : 'http://' + value;
+  window.open(address.replace(/\/$/, '') + '/join', '_blank');
+});
+document.getElementById('joinAddressInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('joinQuickBtn').click();
+});
+
 setInterval(refresh, 2000);
 refresh();
 

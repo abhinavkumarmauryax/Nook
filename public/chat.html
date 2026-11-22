@@ -23,7 +23,11 @@
   <div id="chatBody">
     <div id="messages" class="messages"></div>
     <div class="chat-footer">
-      <input id="messageInput" type="text" placeholder="Type a message…" maxlength="500" disabled>
+      <div class="composer-wrap">
+        <input id="messageInput" type="text" placeholder="Type a message…" maxlength="500" disabled>
+        <button id="emojiBtn" class="emoji-btn" title="Emoji">☺</button>
+        <div id="emojiPicker" class="emoji-picker" style="display:none"></div>
+      </div>
       <button id="sendBtn" class="btn btn-primary" disabled>Send</button>
     </div>
     <div class="users-list">
