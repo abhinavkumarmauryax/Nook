@@ -168,10 +168,18 @@ body.is-resizing { user-select: none; cursor: col-resize; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .controls {
-  position: absolute; bottom: 0; left: 0; right: 0;
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 5;
   display: flex; align-items: center; gap: 10px; padding: 10px 14px;
   background: linear-gradient(transparent, rgba(0,0,0,0.75));
+  opacity: 1;
+  transition: opacity 0.28s ease;
 }
+.video-wrapper.controls-hidden .controls {
+  opacity: 0;
+  pointer-events: none;
+}
+.video-wrapper { cursor: default; }
+.video-wrapper #video { cursor: pointer; }
 
 .icon-btn {
   width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center;

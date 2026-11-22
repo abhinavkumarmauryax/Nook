@@ -18,6 +18,7 @@ No paid subscription, no cloud server, no database, no third-party streaming ser
 - **Real-time chat** — usernames, timestamps, emoji, system messages, length limits, and rate limiting. Muted members cannot chat.
 - **Standalone pop-out chat** — `/chat` opens a compact chat-only page authenticated by the joined session.
 - **Resizable, hideable chat panel** — drag the divider to resize; hide/show with a button; width persists in local storage.
+- **Auto-hiding player controls** — controls fade in on interaction and after playback changes, then fade out after 5 seconds. The owner can click the video to play/pause; admins and members cannot.
 - **Dark theme with custom scrollbars** across chat, participant list, modals and other scrollable areas.
 - **Portable Windows exe** — single file with the runtime bundled.
 - **Optional remote access** — Cloudflare Tunnel, ZeroTier, or Playit.gg.

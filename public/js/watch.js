@@ -124,6 +124,42 @@ function appendMessage(msg) {
 }
 
 // Permissions / participants ----------------------------------------------
+// Auto-hiding player controls ----------------------------------------------
+const CONTROLS_IDLE_MS = 5000;
+let controlsTimer = null;
+let touchSkipToggle = false;
+let controlsWereVisible = true;
+
+function showControls() {
+  clearTimeout(controlsTimer);
+  videoWrapper.classList.remove('controls-hidden');
+  controlsTimer = setTimeout(() => {
+    videoWrapper.classList.add('controls-hidden');
+    controlsTimer = null;
+  }, CONTROLS_IDLE_MS);
+}
+function scheduleControlsHide() {
+  if (controlsTimer) return; // never overlap timers
+  controlsTimer = setTimeout(() => {
+    videoWrapper.classList.add('controls-hidden');
+    controlsTimer = null;
+  }, CONTROLS_IDLE_MS);
+}
+videoWrapper.addEventListener('pointermove', () => showControls());
+videoWrapper.addEventListener('pointerleave', () => scheduleControlsHide());
+videoWrapper.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch') return;
+  controlsWereVisible = !videoWrapper.classList.contains('controls-hidden');
+  touchSkipToggle = !controlsWereVisible;
+  showControls();
+  setTimeout(() => { touchSkipToggle = false; }, 900);
+});
+const controlsBar = videoWrapper.querySelector('.controls');
+controlsBar.addEventListener('click', (e) => e.stopPropagation());
+controlsBar.addEventListener('focusin', () => showControls());
+document.addEventListener('fullscreenchange', () => { showControls(); enforcePlayback(); });
+window.addEventListener('beforeunload', () => clearTimeout(controlsTimer));
+
 function setControlsEnabled() {
   playPauseBtn.style.display = canControlPlayback() ? '' : 'none';
   seekRange.disabled = !canControlPlayback();
@@ -346,6 +382,7 @@ function applyPlaybackState(state) {
   }
   updatePlayPauseIcon();
   applying = false;
+  showControls(); // any synchronized playback change reveals the controls
 }
 function enforcePlayback() {
   if (canControlPlayback() || applying || correcting || !currentVideoDescriptor) return;
@@ -392,6 +429,7 @@ function tick() {
 }
 
 video.addEventListener('play', () => {
+  showControls();
   updatePlayPauseIcon();
   if (!raf) raf = requestAnimationFrame(tick);
   if (userInitiated) {
@@ -400,6 +438,7 @@ video.addEventListener('play', () => {
   } else if (!canControlPlayback() && !applying && !correcting) enforcePlayback();
 });
 video.addEventListener('pause', () => {
+  showControls();
   updatePlayPauseIcon();
   if (userInitiated) {
     userInitiated = false;
@@ -417,7 +456,13 @@ video.addEventListener('seeked', () => {
 video.addEventListener('ratechange', () => { if (!canControlPlayback() && !applying && !correcting) enforcePlayback(); });
 video.addEventListener('ended', () => { updatePlayPauseIcon(); if (raf) cancelAnimationFrame(raf); raf = null; });
 video.addEventListener('click', (e) => {
-  if (!canControlPlayback()) { e.preventDefault(); enforcePlayback(); }
+  showControls();
+  // On touch, the first tap only reveals controls so it cannot also toggle.
+  if (touchSkipToggle) { touchSkipToggle = false; return; }
+  if (!myIsHost) { e.preventDefault(); enforcePlayback(); return; }
+  markUserInitiated();
+  if (video.paused) video.play().catch(() => { userInitiated = false; showToast('Unable to play video'); });
+  else video.pause();
 });
 video.addEventListener('contextmenu', (e) => { e.preventDefault(); });
 setInterval(() => { if (!canControlPlayback()) enforcePlayback(); }, 1000);
@@ -820,6 +865,7 @@ socket.on('playback:control', (data) => {
 
 // init
 setControlsEnabled();
+scheduleControlsHide(); // start the idle countdown on load
 if (!video.canPlayType('video/mp4') && !video.canPlayType('video/webm')) {
   showToast('Warning: this browser may not support common video formats');
 }
