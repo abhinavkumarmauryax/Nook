@@ -724,7 +724,9 @@ function startSessionServer(port) {
         } else {
           return ack(cb, false, 'Unknown playback action');
         }
-        io.emit('playback:control', {
+        // Never echo the command back to the sender — that caused a broadcast
+        // storm when multiple controllers re-emitted states they just applied.
+        socket.broadcast.emit('playback:control', {
           action,
           time: playbackState.currentTime,
           isPlaying: playbackState.isPlaying,

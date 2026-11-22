@@ -51,6 +51,15 @@ let myUsername = username;
 let mySessionToken = sessionStorage.getItem('nook_session_token') || '';
 let myOwnerToken = sessionStorage.getItem('nook_owner_token') || '';
 let applying = false;
+// Set only when a local user actually pressed a control. Media events caused
+// by applying a remote state must never be broadcast back to the server.
+let userInitiated = false;
+let userInitiatedTimer = null;
+function markUserInitiated() {
+  userInitiated = true;
+  clearTimeout(userInitiatedTimer);
+  userInitiatedTimer = setTimeout(() => { userInitiated = false; }, 1500);
+}
 let correcting = false;
 let seeking = false;
 let pendingTime = null;
@@ -385,22 +394,25 @@ function tick() {
 video.addEventListener('play', () => {
   updatePlayPauseIcon();
   if (!raf) raf = requestAnimationFrame(tick);
-  if (canControlPlayback() && !applying && !correcting)
-    socket.emit('playback:control', { action: 'play', time: video.currentTime });
-  else if (!canControlPlayback() && !applying && !correcting) enforcePlayback();
+  if (userInitiated) {
+    userInitiated = false;
+    if (canControlPlayback()) socket.emit('playback:control', { action: 'play', time: video.currentTime });
+  } else if (!canControlPlayback() && !applying && !correcting) enforcePlayback();
 });
 video.addEventListener('pause', () => {
   updatePlayPauseIcon();
-  if (canControlPlayback() && !applying && !correcting)
-    socket.emit('playback:control', { action: 'pause', time: video.currentTime });
-  else if (!canControlPlayback() && !applying && !correcting) enforcePlayback();
+  if (userInitiated) {
+    userInitiated = false;
+    if (canControlPlayback()) socket.emit('playback:control', { action: 'pause', time: video.currentTime });
+  } else if (!canControlPlayback() && !applying && !correcting) enforcePlayback();
 });
 video.addEventListener('seeking', () => { seeking = true; });
 video.addEventListener('seeked', () => {
   seeking = false;
-  if (canControlPlayback() && !applying && !correcting)
-    socket.emit('playback:control', { action: 'seek', time: video.currentTime });
-  else if (!canControlPlayback() && !applying && !correcting) enforcePlayback();
+  if (userInitiated) {
+    userInitiated = false;
+    if (canControlPlayback()) socket.emit('playback:control', { action: 'seek', time: video.currentTime });
+  } else if (!canControlPlayback() && !applying && !correcting) enforcePlayback();
 });
 video.addEventListener('ratechange', () => { if (!canControlPlayback() && !applying && !correcting) enforcePlayback(); });
 video.addEventListener('ended', () => { updatePlayPauseIcon(); if (raf) cancelAnimationFrame(raf); raf = null; });
@@ -410,14 +422,27 @@ video.addEventListener('click', (e) => {
 video.addEventListener('contextmenu', (e) => { e.preventDefault(); });
 setInterval(() => { if (!canControlPlayback()) enforcePlayback(); }, 1000);
 
-// Keyboard shortcuts that could change playback are blocked for members.
+// Intercept playback shortcuts so browsers cannot change the video behind our
+// back. Controllers get explicit actions; members get corrected to server state.
 document.addEventListener('keydown', (e) => {
-  if (canControlPlayback()) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-  const blocked = [' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End',
-    'PageUp', 'PageDown', 'k', 'K', 'j', 'J', 'l', 'L'];
-  if (blocked.includes(e.key)) {
+  const toggle = [' ', 'k', 'K'];
+  const seekKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End',
+    'PageUp', 'PageDown', 'j', 'J', 'l', 'L'];
+  if (canControlPlayback()) {
+    if (toggle.includes(e.key)) { e.preventDefault(); playPauseBtn.click(); return; }
+    if (seekKeys.includes(e.key) && isFinite(video.duration)) {
+      e.preventDefault();
+      const delta = e.key === 'ArrowRight' || e.key === 'l' || e.key === 'L' ? 5
+        : e.key === 'ArrowLeft' || e.key === 'j' || e.key === 'J' ? -5
+        : e.key === 'Home' ? -Infinity : e.key === 'End' ? Infinity : 10;
+      let target = delta === -Infinity ? 0 : delta === Infinity ? video.duration : video.currentTime + delta;
+      target = Math.max(0, Math.min(target, video.duration));
+      try { markUserInitiated(); video.currentTime = target; } catch { userInitiated = false; }
+      return;
+    }
+  } else if (toggle.includes(e.key) || seekKeys.includes(e.key)) {
     e.preventDefault();
     e.stopPropagation();
     enforcePlayback();
@@ -426,7 +451,8 @@ document.addEventListener('keydown', (e) => {
 
 playPauseBtn.addEventListener('click', () => {
   if (!canControlPlayback()) { showToast('Only the owner or an admin controls playback'); return; }
-  if (video.paused) video.play().catch(() => showToast('Unable to play video'));
+  markUserInitiated();
+  if (video.paused) video.play().catch(() => { userInitiated = false; showToast('Unable to play video'); });
   else video.pause();
 });
 muteBtn.addEventListener('click', () => {
@@ -447,7 +473,8 @@ seekRange.addEventListener('change', () => {
     showToast('Only the owner or an admin can seek');
     return;
   }
-  video.currentTime = seekRange.valueAsNumber;
+  try { markUserInitiated(); video.currentTime = seekRange.valueAsNumber; }
+  catch { userInitiated = false; }
 });
 fullscreenBtn.addEventListener('click', () => {
   const el = videoWrapper;
