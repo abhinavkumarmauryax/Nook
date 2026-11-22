@@ -27,11 +27,11 @@
           <div class="video-wrapper" id="videoWrapper">
             <video id="video" playsinline preload="metadata" controlsList="nodownload"></video>
             <div id="loadingOverlay" class="overlay">
-              <div class="spinner"></div><span>Loading videoâ€¦</span>
+              <div class="spinner"></div><span>Loading video…</span>
             </div>
             <div id="errorOverlay" class="overlay error" style="display:none">
               <div style="text-align:center;max-width:460px;padding:20px">
-                <div style="font-size:26px;margin-bottom:8px">ðŸŽ¬</div>
+                <span class="inline-icon" data-icon="film" style="width:34px;height:34px;opacity:.8"></span>
                 <span id="errorMsg">Unable to play video</span>
                 <div id="errorDiagRow" style="display:none;margin-top:12px;font-size:11px;color:var(--muted);text-align:left;background:rgba(0,0,0,.35);padding:10px;border-radius:8px;word-break:break-all;"><div id="errorDiag"></div></div>
                 <button id="retryBtn" class="btn btn-primary" style="margin-top:16px;display:none">Retry</button>
@@ -42,14 +42,18 @@
               <button id="muteBtn" class="icon-btn" data-icon="volume" title="Mute/unmute" aria-label="Mute or unmute"></button>
               <input id="volumeRange" type="range" min="0" max="1" step="0.1" value="1" aria-label="Volume">
               <input id="seekRange" type="range" min="0" max="100" value="0" aria-label="Timeline" title="Only the owner or an admin can seek">
+              <div id="seekPreview" class="seek-preview" style="display:none">
+                <div id="seekPreviewFrame"></div>
+                <span id="seekPreviewTime">0:00</span>
+              </div>
               <span id="timeDisplay">0:00 / 0:00</span>
               <button id="fullscreenBtn" class="icon-btn" data-icon="fullscreen" title="Fullscreen" aria-label="Toggle fullscreen"></button>
             </div>
           </div>
           <div class="video-footer">
-            <button id="selectVideoBtn" class="btn">ðŸ“ Select Video</button>
-            <button id="localVideoBtn" class="btn">ðŸ“‚ Local File (no upload)</button>
-            <button id="videoUrlBtn" class="btn">ðŸ”— Video URL</button>
+            <button id="selectVideoBtn" class="btn"><span class="inline-icon" data-icon="folder"></span> Select Video</button>
+            <button id="localVideoBtn" class="btn"><span class="inline-icon" data-icon="folder"></span> Local File (no upload)</button>
+            <button id="videoUrlBtn" class="btn"><span class="inline-icon" data-icon="link"></span> Video URL</button>
             <input id="hostFileInput" type="file" accept="video/*" style="display:none">
           </div>
         </div>
@@ -60,7 +64,7 @@
       <div class="chat-section" id="chatSection">
         <div class="chat-card">
           <div class="chat-header">
-            <h2>ðŸ’¬ <span id="chatLabel">Room chat</span></h2>
+            <h2><span class="inline-icon" data-icon="chat"></span> <span id="chatLabel">Room chat</span></h2>
             <div style="display:flex;align-items:center;gap:10px">
               <span id="roomInfo">Online: <span id="onlineCount">0</span></span>
               <button id="chatPopoutBtn" class="icon-btn" data-icon="popout" title="Open chat in a new window" aria-label="Pop out chat" style="width:28px;height:28px"></button>
@@ -69,7 +73,7 @@
           <div id="messages" class="messages"></div>
           <div class="chat-footer">
             <div class="composer-wrap">
-              <input id="messageInput" type="text" placeholder="Type a messageâ€¦" maxlength="500">
+              <input id="messageInput" type="text" placeholder="Type a message…" maxlength="500">
               <button id="emojiBtn" class="emoji-btn" data-icon="emoji" title="Emoji" aria-label="Emoji"></button>
               <div id="emojiPicker" class="emoji-picker" style="display:none"></div>
             </div>
@@ -93,9 +97,9 @@
   <div class="modal-box">
     <h3 class="modal-title">Choose a video source</h3>
     <p class="modal-message">Stream a file that is already on this computer, upload one, or use a direct media link.</p>
-    <button class="source-choice" id="mediaLocalBtn"><span class="src-icon">ðŸ“‚</span><span><strong>Local file Â· no upload</strong><span>Instant, even for very large files</span></span></button>
-    <button class="source-choice" id="mediaUploadBtn"><span class="src-icon">ðŸ“</span><span><strong>Upload from computer</strong><span>Copies the file to this machine first</span></span></button>
-    <button class="source-choice" id="mediaUrlBtn"><span class="src-icon">ðŸ”—</span><span><strong>Play from URL</strong><span>Direct MP4, WebM or HLS link</span></span></button>
+    <button class="source-choice" id="mediaLocalBtn"><span class="src-icon">📂</span><span><strong>Local file · no upload</strong><span>Instant, even for very large files</span></span></button>
+    <button class="source-choice" id="mediaUploadBtn"><span class="src-icon">📁</span><span><strong>Upload from computer</strong><span>Copies the file to this machine first</span></span></button>
+    <button class="source-choice" id="mediaUrlBtn"><span class="src-icon">🔗</span><span><strong>Play from URL</strong><span>Direct MP4, WebM or HLS link</span></span></button>
     <div class="modal-actions"><button id="mediaCancel" class="btn">Cancel</button></div>
   </div>
 </div>
@@ -103,7 +107,7 @@
 <div id="localFileModal" class="modal-overlay" style="display:none">
   <div class="modal-box local-file-modal">
     <h3 class="modal-title">Share a local video file</h3>
-    <p class="modal-message">Choose a file already on this computer. It is streamed directly from disk â€” nothing is uploaded or copied.</p>
+    <p class="modal-message">Choose a file already on this computer. It is streamed directly from disk — nothing is uploaded or copied.</p>
     <div class="local-path-row">
       <input id="localPathInput" class="modal-input" placeholder="C:\Users\...\video.mp4" style="margin:0">
       <button id="browseHomeBtn" class="btn btn-small">Home</button>

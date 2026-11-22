@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
-<title>Nook â€” Server Setup</title>
+<title>Nook — Server Setup</title>
 <link rel="icon" type="image/png" href="/assets/nook-icon.png">
 <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -12,15 +12,15 @@
   <header class="setup-hero">
     <img class="brand-logo" src="/assets/nook-logo.svg" alt="Nook">
     <h1 class="wordmark">Nook</h1>
-    <p>Host a private watch room on your own machine. Everyone on the same network watches in sync and chats in real time â€” no cloud, no accounts.</p>
-    <div class="hero-badge"><i></i> Self-hosted Â· Free Â· Yours</div>
+    <p>Host a private watch room on your own machine. Everyone on the same network watches in sync and chats in real time — no cloud, no accounts.</p>
+    <div class="hero-badge"><i></i> Self-hosted · Free · Yours</div>
     <div class="quick-actions">
       <button class="quick-card" id="hostQuick">
-        <strong>âš¡ Host a server</strong>
+        <strong><span class="inline-icon" data-icon="server"></span> Host a server</strong>
         <span>Configure a port and start a room</span>
       </button>
       <div class="quick-card">
-        <strong>ðŸ”— Join a server</strong>
+        <strong><span class="inline-icon" data-icon="link"></span> Join a server</strong>
         <span>Enter the host's address and port</span>
         <div class="join-quick">
           <input type="text" id="joinAddressInput" placeholder="192.168.1.10:3001" aria-label="Host address">
@@ -47,15 +47,15 @@
   <section class="card" id="networkInfo" style="display:none">
     <h2>Joining information</h2>
     <div class="row">
-      <label>Session URL â€” share with participants</label>
-      <div class="url-row"><span id="urlDisplay">â€”</span><button id="copyUrlBtn" class="btn btn-small">Copy</button></div>
+      <label>Session URL — share with participants</label>
+      <div class="url-row"><span id="urlDisplay">—</span><button id="copyUrlBtn" class="btn btn-small">Copy</button></div>
     </div>
     <div class="row">
       <label>Standalone chat URL (Pop Out Chat)</label>
-      <div class="url-row"><span id="chatUrlDisplay">â€”</span><button id="copyChatUrlBtn" class="btn btn-small">Copy</button></div>
+      <div class="url-row"><span id="chatUrlDisplay">—</span><button id="copyChatUrlBtn" class="btn btn-small">Copy</button></div>
     </div>
-    <div class="row"><label>Local IP addresses</label><span id="ipsDisplay">â€”</span></div>
-    <div class="row"><label>Binding</label><span class="empty">0.0.0.0 â€” all network interfaces</span></div>
+    <div class="row"><label>Local IP addresses</label><span id="ipsDisplay">—</span></div>
+    <div class="row"><label>Binding</label><span class="empty">0.0.0.0 — all network interfaces</span></div>
   </section>
 
   <section class="card">
@@ -77,6 +77,7 @@
     <button id="openWatchBtn" class="btn btn-primary" disabled>Open Watch Session (Host)</button>
   </section>
 </div>
+<script src="/js/icons.js"></script>
 <script src="/js/setup.js"></script>
 </body>
 </html>

@@ -1,5 +1,7 @@
 /* Nook - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
 
+if (window.applyIcons) applyIcons();
+
 const portInput = document.getElementById('portInput');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');

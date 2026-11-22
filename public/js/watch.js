@@ -382,10 +382,11 @@ function showVideoError(msg, details) {
   showLoading(false);
   retryBtn.style.display = 'inline-block';
 }
-function showNoVideo(msg) {
+function showNoVideo(msg, html) {
   if (loadTimeout) { clearTimeout(loadTimeout); loadTimeout = null; }
   showLoading(false);
-  errorMsg.textContent = msg;
+  if (html && ICONS) errorMsg.innerHTML = html;
+  else errorMsg.textContent = msg;
   document.getElementById('errorDiagRow').style.display = 'none';
   errorOverlay.style.display = 'flex';
   retryBtn.style.display = 'none';
@@ -412,9 +413,15 @@ function applyVideo(v) {
   currentVideoDescriptor = v || null;
   if (!v) {
     destroyHls();
-    showNoVideo(myIsHost
-      ? 'No video selected. Use 📁 Select Video or 🔗 Video URL to choose something to watch.'
-      : 'The host has not selected a video yet. Sit tight — it will appear here automatically.');
+    showNoVideo(
+      myIsHost
+        ? 'No video selected. Use Select Video or Video URL to choose something to watch.'
+        : 'The host has not selected a video yet. Sit tight — it will appear here automatically.',
+      myIsHost
+        ? `No video selected. Use <span class="inline-icon" data-icon="folder"></span> Select Video or <span class="inline-icon" data-icon="link"></span> Video URL to choose something to watch.`
+        : null
+    );
+    if (window.applyIcons) applyIcons(errorMsg);
     setTitle('');
     return;
   }
@@ -623,6 +630,57 @@ seekRange.addEventListener('change', () => {
   try { markUserInitiated(); video.currentTime = seekRange.valueAsNumber; }
   catch { userInitiated = false; }
 });
+
+// Timeline hover preview (time + thumbnail, like a video site scrub preview)
+const seekPreview = document.getElementById('seekPreview');
+const seekPreviewTime = document.getElementById('seekPreviewTime');
+const seekPreviewFrame = document.getElementById('seekPreviewFrame');
+const previewVideo = document.createElement('video');
+previewVideo.muted = true;
+previewVideo.preload = 'auto';
+const previewCanvas = document.createElement('canvas');
+previewCanvas.width = 116; previewCanvas.height = 65;
+const previewCtx = previewCanvas.getContext('2d');
+let previewSource = '';
+let lastPreviewSeek = 0;
+function ensurePreviewSource() {
+  if (!currentVideoDescriptor || video.readyState === 0) return false;
+  const src = currentVideoDescriptor.kind === 'url'
+    ? currentVideoDescriptor.url
+    : `/video?t=${encodeURIComponent(currentVideoDescriptor.key)}`;
+  if (src !== previewSource) { previewSource = src; previewVideo.src = src; previewVideo.load(); }
+  return true;
+}
+if (seekPreview) {
+  seekRange.addEventListener('pointermove', (e) => {
+    if (video.readyState === 0 || !isFinite(video.duration)) return;
+    const r = seekRange.getBoundingClientRect();
+    if (!r.width) return;
+    const ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    const t = ratio * video.duration;
+    seekPreview.style.display = 'block';
+    const wrap = videoWrapper.getBoundingClientRect();
+    seekPreview.style.left = Math.max(8, Math.min(e.clientX - wrap.left - 62, wrap.width - 132)) + 'px';
+    seekPreviewTime.textContent = formatTime(t);
+    const now = Date.now();
+    if (now - lastPreviewSeek < 120) return;
+    lastPreviewSeek = now;
+    if (ensurePreviewSource() && previewVideo.readyState >= 2) {
+      try {
+        const target = Math.max(0, Math.min(t, (previewVideo.duration || t) - 0.05));
+        previewVideo.currentTime = target;
+        previewVideo.onseeked = () => {
+          try {
+            previewCtx.drawImage(previewVideo, 0, 0, 116, 65);
+            seekPreviewFrame.style.backgroundImage = `url(${previewCanvas.toDataURL('image/jpeg', 0.6)})`;
+          } catch {}
+        };
+      } catch {}
+    }
+  });
+  seekRange.addEventListener('pointerleave', () => { seekPreview.style.display = 'none'; });
+}
+
 fullscreenBtn.addEventListener('click', () => {
   if (document.fullscreenElement || document.webkitFullscreenElement) {
     if (document.exitFullscreen) document.exitFullscreen();

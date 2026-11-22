@@ -1,6 +1,7 @@
 /* Nook - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
 
 /* Standalone pop-out chat. Authenticates with the session token from the URL fragment. */
+if (window.applyIcons) applyIcons();
 const socket = io();
 const messagesEl = document.getElementById('messages');
 const messageInput = document.getElementById('messageInput');
