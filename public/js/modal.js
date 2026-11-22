@@ -1,3 +1,5 @@
+/* WatchTogetherParty - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
+
 /* Shared confirmation / alert modal for the Watch Together UI. */
 (function () {
   'use strict';

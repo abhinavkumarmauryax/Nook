@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* WatchTogetherParty - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
 'use strict';
 
 /**

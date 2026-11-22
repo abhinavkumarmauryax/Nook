@@ -1,21 +1,179 @@
-MIT License
+WATCHTOGETHERPARTY
+## SOURCE-AVAILABLE, NON-COMMERCIAL, CONTRIBUTION-ONLY LICENCE
 
-Copyright (c) 2026 Local Watch Together contributors
+**Version:** 1.0 (Draft)  
+**Effective date:** 22 November 2026
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+**Project:** WatchTogetherParty (Local Watch Together)  
+**Project Owner:** Abhi  
+**GitHub Account:** @abhinavkumarmauryax  
+**Official Repository:** https://github.com/abhinavkumarmauryax/WatchTogetherParty
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Copyright (c) 2026 Abhi (@abhinavkumarmauryax), to the extent of rights owned by the Project Owner.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+All rights reserved.
+
+## 1. DEFINITIONS
+
+"Project" means WatchTogetherParty, including its source code, documentation, designs, interfaces, original assets and other materials.
+
+"Project Owner" means Abhi, operating through the GitHub account @abhinavkumarmauryax, or a legally authorised successor.
+
+"Official Repository" means the GitHub repository identified above.
+
+"Contributor" means any individual or organisation submitting an original contribution to the Project.
+
+"Contribution" means original code, documentation, improvements, fixes or other material submitted for inclusion in the Project.
+
+"Commercial Use" means using, selling, distributing, hosting, licensing, monetising or otherwise exploiting the Project or any part of it for commercial gain, revenue or financial compensation.
+
+## 2. LEGACY LICENCE AND EFFECTIVE DATE
+
+2.1. The Project was previously published under the MIT Licence.
+
+2.2. This Licence does not revoke, retrospectively modify or invalidate permissions already granted under the MIT Licence to recipients of earlier versions.
+
+2.3. The MIT permissions applicable to previously distributed material remain applicable to those previously licensed copies and versions.
+
+2.4. This Licence governs new versions distributed under it after the Effective Date, to the extent that the Project Owner has the necessary rights to license the included materials.
+
+2.5. Contributions are additionally governed by the separate Contributor Agreement where applicable.
+
+## 3. OWNERSHIP
+
+3.1. The Project Owner retains ownership of original Project materials created by the Project Owner.
+
+3.2. Contributors retain copyright ownership of their original Contributions, subject to the exclusive licence granted under the Contributor Agreement.
+
+3.3. Access to the Project does not transfer ownership or copyright.
+
+3.4. No rights are granted except those expressly provided in this Licence.
+
+## 4. PERMITTED ACTIVITIES
+
+Subject to this Licence, users may:
+
+a. View and study the Project.
+
+b. Examine the source code for educational and personal purposes.
+
+c. Run the Project for personal, non-commercial evaluation.
+
+d. Prepare proposed fixes and improvements for submission to the Official Repository.
+
+e. Submit issues, suggestions and pull requests.
+
+f. Use GitHub's native repository and forking functionality to the extent permitted by GitHub's Terms of Service.
+
+These permissions do not constitute general permission to distribute or independently commercially exploit the Project.
+
+## 5. RESTRICTIONS
+
+Except where expressly permitted under this Licence, applicable platform terms or a separate written authorisation, users must not:
+
+a. Independently publish or distribute copies of the Project.
+
+b. Create or commercially maintain competing derivative projects using protected Project code.
+
+c. Incorporate protected Project materials into unrelated applications, repositories or products.
+
+d. Sell, sublicense or commercially exploit the Project or any part of it.
+
+e. Monetise the Project through advertisements, subscriptions, paid access, hosting, services, sponsorships or other revenue mechanisms.
+
+f. Claim ownership of the original Project or misrepresent its authorship.
+
+g. Remove applicable copyright and licence notices.
+
+h. Distribute modified versions outside the permissions granted by this Licence.
+
+These restrictions apply to third parties and Contributors, subject to the rights expressly reserved for the Project Owner.
+
+## 6. PROJECT OWNER'S RESERVED RIGHTS
+
+The Project Owner expressly reserves the right to use the Project commercially and non-commercially.
+
+The Project Owner may:
+
+a. Sell or commercially license the Project.
+
+b. Develop paid products and services based on the Project.
+
+c. Modify, extend, update and maintain the Project.
+
+d. Incorporate accepted Contributions into the Project.
+
+e. Distribute and commercially exploit authorised versions.
+
+f. Create official extensions, editions and successor versions.
+
+These permissions do not automatically extend to Contributors or other users.
+
+## 7. CONTRIBUTIONS
+
+7.1. Contributors retain copyright ownership of their original Contributions.
+
+7.2. Before acceptance and merging, Contributors must enter into the separate Contributor Agreement.
+
+7.3. That Agreement grants the Project Owner an exclusive, worldwide, perpetual, irrevocable and royalty-free licence to use the accepted Contribution within the rights expressly described in that Agreement.
+
+7.4. The Project Owner may use accepted Contributions in commercial and non-commercial versions of the Official Project.
+
+7.5. Contributors may not independently exploit the same Contribution within the scope of the exclusive rights granted.
+
+7.6. General skills, experience, knowledge and independently developed code remain available to Contributors, provided they do not infringe protected Project materials or the exclusive rights granted.
+
+7.7. Submission does not guarantee acceptance.
+
+## 8. THIRD-PARTY MATERIALS
+
+Third-party dependencies, libraries, assets and other materials are governed by their respective licences.
+
+Nothing in this Licence overrides third-party copyright or licensing obligations.
+
+Contributors must identify third-party materials and have the necessary rights to submit them.
+
+## 9. GITHUB PLATFORM TERMS
+
+Nothing in this Licence purports to override GitHub's Terms of Service.
+
+GitHub's platform permissions, including permissions relating to public repository access and native forking, continue to apply.
+
+Any rights beyond those platform permissions must be expressly granted by the relevant copyright holder.
+
+## 10. TERMINATION
+
+Permissions under this Licence may terminate automatically upon a material violation of its terms.
+
+Upon termination, the recipient must stop exercising terminated permissions.
+
+Termination does not automatically revoke rights already granted to the Project Owner under a valid Contributor Agreement.
+
+## 11. DISCLAIMER
+
+The Project is provided "AS IS", without warranties of any kind, to the maximum extent permitted by applicable law.
+
+Nothing in this section excludes liability that cannot legally be excluded.
+
+## 12. GOVERNING LAW
+
+The governing law and jurisdiction must be specified in a separate completed version reviewed by a qualified legal professional.
+
+Applicable jurisdiction: [TO BE COMPLETED BEFORE ADOPTION]
+
+## 13. RESERVATION OF RIGHTS
+
+All rights not expressly granted are reserved by the respective copyright holders.
+
+Unauthorised use may constitute copyright infringement or another violation of applicable law.
+
+---
+
+**END OF LICENCE**
+
+Project: WatchTogetherParty  
+Project Owner: Abhi  
+GitHub: @abhinavkumarmauryax  
+Repository: https://github.com/abhinavkumarmauryax/WatchTogetherParty  
+Version: 1.0  
+Effective Date: 22 November 2026

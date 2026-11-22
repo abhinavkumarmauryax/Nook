@@ -4,6 +4,8 @@ A free, self-hosted watch-party app. One person hosts a server on their computer
 
 No paid subscription, no cloud server, no database, no third-party streaming service, and no accounts. Local video files never leave the host's machine.
 
+> **Licensing:** source-available, non-commercial and contribution-only. Viewing, studying, personal evaluation and submitting contributions are allowed; independent redistribution and commercial use are not. See [LICENSE](LICENSE).
+
 ## Features
 
 - **Host setup page** — choose a port, start/stop the session server, see your LAN IP, join URL, chat URL, status, and participant count.
@@ -141,4 +143,8 @@ This app needs a **TCP** tunnel (HTTP/WebSocket). Playit's free UDP tunnels cann
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+This project is **source-available, non-commercial and contribution-only**. It is **not** an open-source licence and does not permit independent distribution or commercial use.
+
+See [LICENSE](LICENSE) for the full terms, and [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution process and the [Contributor Agreement](CONTRIBUTOR_AGREEMENT.md) required before a contribution is merged.
+
+Earlier versions were published under the MIT Licence. Section 2 of the current licence preserves the MIT permissions already granted for those earlier versions; it does not revoke them.

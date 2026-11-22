@@ -1,3 +1,5 @@
+/* WatchTogetherParty - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
+
 const socket = io();
 const params = new URLSearchParams(location.search);
 const pendingHostToken = params.get('host');
