@@ -48,6 +48,19 @@ body {
 button { cursor: var(--cursor); font: inherit; border: none; background: none; color: inherit; }
 a { cursor: var(--cursor); }
 input, textarea { cursor: text !important; }
+/* Rotating overlay: native cursor is hidden only while this is active */
+html.cursor-rotating, html.cursor-rotating * { cursor: none !important; }
+html.cursor-rotating input, html.cursor-rotating textarea { cursor: text !important; }
+#flowCursor {
+  position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+  opacity: 0; transition: opacity .12s;
+}
+#flowCursor .flow-arrow, #flowCursor .flow-trail {
+  position: fixed; left: 0; top: 0; width: 17px; height: 19px; display: block;
+  will-change: transform; filter: drop-shadow(0 0 2px rgba(0,0,0,.9));
+}
+#flowCursor .flow-trail { opacity: .16; }
+#flowCursor .flow-trail-2 { opacity: .08; }
 button:disabled { cursor: not-allowed; opacity: .5; }
 a { color: var(--orange); text-decoration: none; }
 a:hover { color: var(--orange-bright); }
