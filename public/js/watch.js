@@ -85,8 +85,12 @@ function escapeHtml(text) {
 }
 function formatTime(sec) {
   if (!isFinite(sec) || sec < 0) return '0:00';
-  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
-  return `${m}:${s < 10 ? '0' : ''}${s}`;
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  const mm = h ? String(m).padStart(2, '0') : String(m);
+  const ss = String(s).padStart(2, '0');
+  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 function setConn(msg) {
   const el = document.getElementById('connStatus');
@@ -217,8 +221,8 @@ function setControlsEnabled() {
 function applyMyPermissions(data) {
   myRole = data.role || (data.isHost ? 'owner' : 'member');
   myIsHost = myRole === 'owner';
-  hostBadge.style.display = myIsHost ? 'inline-block' : 'none';
-  adminBadge.style.display = myRole === 'admin' ? 'inline-block' : 'none';
+  if (hostBadge) hostBadge.style.display = myIsHost ? 'inline-block' : 'none';
+  if (adminBadge) adminBadge.style.display = myRole === 'admin' ? 'inline-block' : 'none';
   setControlsEnabled();
   railVideo.style.display = myIsHost ? 'grid' : 'none';
   const railLeave = document.getElementById('railLeave');
@@ -360,7 +364,7 @@ document.addEventListener('click', (e) => {
 
 // Video source -------------------------------------------------------------
 function setTitle(name) {
-  videoTitleEl.textContent = name || 'Nook';
+  if (videoTitleEl) videoTitleEl.textContent = name || 'Nook';
   document.title = name ? `Nook — ${name}` : 'Nook';
 }
 function destroyHls() {
@@ -632,6 +636,24 @@ fullscreenBtn.addEventListener('click', () => {
 document.addEventListener('fullscreenchange', () => {
   setIcon(fullscreenBtn, document.fullscreenElement ? 'fullscreenExit' : 'fullscreen');
 });
+
+// Hide the pointer in fullscreen after 5s of no movement/click, so it never
+// sits over the picture. Any interaction brings it straight back.
+let idleCursorTimer = null;
+function revealCursor() {
+  document.documentElement.classList.remove('cursor-hidden');
+  clearTimeout(idleCursorTimer);
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    idleCursorTimer = setTimeout(() => {
+      document.documentElement.classList.add('cursor-hidden');
+    }, 5000);
+  }
+}
+['mousemove', 'pointerdown', 'click', 'keydown'].forEach((evt) => {
+  document.addEventListener(evt, revealCursor, { passive: true });
+});
+document.addEventListener('fullscreenchange', revealCursor);
+window.addEventListener('beforeunload', () => clearTimeout(idleCursorTimer));
 document.addEventListener('webkitfullscreenchange', () => {
   setIcon(fullscreenBtn, document.webkitFullscreenElement ? 'fullscreenExit' : 'fullscreen');
 });
@@ -1036,7 +1058,6 @@ socket.on('playback:control', (data) => {
 // Accent theme -------------------------------------------------------------
 const THEMES = [
   { key: 'orange', name: 'Flame orange' },
-  { key: 'white', name: 'Ice white' },
   { key: 'blue', name: 'Cobalt blue' },
   { key: 'cyan', name: 'Cyan' },
   { key: 'violet', name: 'Violet' },
@@ -1047,7 +1068,8 @@ function applyTheme(key) {
   document.documentElement.dataset.theme = key;
   localStorage.setItem('nook_theme', key);
 }
-applyTheme(localStorage.getItem('nook_theme') || 'orange');
+const savedTheme = localStorage.getItem('nook_theme');
+applyTheme(THEMES.some((t) => t.key === savedTheme) ? savedTheme : 'orange');
 document.getElementById('railTheme').addEventListener('click', () => {
   const current = document.documentElement.dataset.theme;
   const idx = THEMES.findIndex((t) => t.key === current);
