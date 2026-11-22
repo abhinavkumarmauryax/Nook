@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "express": "^4.19.2",
+    "hls.js": "^1.7.4",
     "socket.io": "^4.7.5"
   },
   "pkg": {
@@ -25,6 +26,13 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["watch-together", "sync-video", "socket.io", "express", "local-network", "streaming"],
+  "keywords": [
+    "watch-together",
+    "sync-video",
+    "socket.io",
+    "express",
+    "local-network",
+    "streaming"
+  ],
   "license": "MIT"
 }

@@ -7,6 +7,8 @@ const networkInfo = document.getElementById('networkInfo');
 const urlDisplay = document.getElementById('urlDisplay');
 const ipsDisplay = document.getElementById('ipsDisplay');
 const copyUrlBtn = document.getElementById('copyUrlBtn');
+const chatUrlDisplay = document.getElementById('chatUrlDisplay');
+const copyChatUrlBtn = document.getElementById('copyChatUrlBtn');
 const participantCount = document.getElementById('participantCount');
 const openWatchBtn = document.getElementById('openWatchBtn');
 const videoInfo = document.getElementById('videoInfo');
@@ -55,6 +57,7 @@ function render() {
   if (running) {
     networkInfo.style.display = 'block';
     urlDisplay.textContent = sessionInfo.url || '—';
+    chatUrlDisplay.textContent = sessionInfo.url ? sessionInfo.url + '/chat' : '—';
     openWatchBtn.dataset.url = sessionInfo.url || '';
     openWatchBtn.dataset.token = sessionInfo.hostToken || '';
     ipsDisplay.textContent = (sessionInfo.ips && sessionInfo.ips.length ? sessionInfo.ips.join(', ') : '—');
@@ -107,6 +110,17 @@ copyUrlBtn.addEventListener('click', async () => {
     const prev = copyUrlBtn.textContent;
     copyUrlBtn.textContent = 'Copied!';
     setTimeout(() => { copyUrlBtn.textContent = prev; }, 1500);
+  } catch {}
+});
+
+copyChatUrlBtn.addEventListener('click', async () => {
+  const url = chatUrlDisplay.textContent;
+  if (!url || url === '—') return;
+  try {
+    await navigator.clipboard.writeText(url);
+    const prev = copyChatUrlBtn.textContent;
+    copyChatUrlBtn.textContent = 'Copied!';
+    setTimeout(() => { copyChatUrlBtn.textContent = prev; }, 1500);
   } catch {}
 });
 

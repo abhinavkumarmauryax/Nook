@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watch Together — Chat</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="standalone-chat">
+  <header class="chat-header">
+    <h2>💬 <span id="chatLabel">Watch Together Chat</span></h2>
+    <span id="roomInfo">Online: <span id="onlineCount">0</span></span>
+  </header>
+
+  <div id="denied" class="chat-denied" style="display:none">
+    <h3>🔒 Session required</h3>
+    <p id="deniedMessage">Open this page from the Pop Out Chat button on the Watch Together page, or join the session first.</p>
+    <a class="btn btn-primary" href="/join">Go to Join Session</a>
+  </div>
+
+  <div id="chatBody">
+    <div id="messages" class="messages"></div>
+    <div class="chat-footer">
+      <input id="messageInput" type="text" placeholder="Type a message…" maxlength="500" disabled>
+      <button id="sendBtn" class="btn btn-primary" disabled>Send</button>
+    </div>
+    <div class="users-list">
+      <button id="toggleUsersBtn" class="users-toggle" aria-expanded="true">Participants ▾</button>
+      <ul id="users"></ul>
+    </div>
+    <div class="chat-footnote">
+      <span id="myRole" class="role-tag role-tag-member">MEMBER</span>
+      <a href="/watch">Back to video</a>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="modalRoot"></div>
+<script src="/js/socket.io.js"></script>
+<script src="/js/modal.js"></script>
+<script src="/js/chat.js"></script>
+</body>
+</html>

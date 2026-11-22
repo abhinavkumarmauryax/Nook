@@ -7,9 +7,9 @@
  * Architecture:
  *   - Bootstrap server (env PORT, default 3000): serves the "Server Setup" UI and
  *     starts/stops the actual session server on a user-chosen port.
- *   - Session server (0.0.0.0:<chosen port>): serves the join/watch pages,
+ *   - Session server (0.0.0.0:<chosen port>): serves the join/watch/chat pages,
  *     streams the selected video with HTTP range support, and runs Socket.IO
- *     for playback synchronization and chat.
+ *     for playback synchronization, chat and moderation.
  *   - All session state is in-memory. No database, no cloud, no accounts.
  */
 
@@ -35,12 +35,11 @@ const USERNAME_RE = /^[a-zA-Z0-9 _.\-]{2,32}$/;
 const ALLOWED_VIDEO_EXTS = ['.mp4', '.webm', '.ogg', '.mov', '.m4v'];
 const RATE_LIMIT_WINDOW_MS = 10000;
 const RATE_LIMIT_MAX = 30;
+const TRANSFER_TIMEOUT_MS = 60000;
+const KICK_COOLDOWN_MS = 30000;
 
-// Temp directory is created lazily on first video upload (pkg snapshots are read-only at load time)
 function ensureTempDir() {
-  if (!fs.existsSync(TEMP_DIR)) {
-    fs.mkdirSync(TEMP_DIR, { recursive: true });
-  }
+  if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
 }
 
 // -------------------- shared session state --------------------
@@ -51,7 +50,7 @@ let sessionUrl = null;
 let hostToken = null;
 let sessionStartError = null;
 
-let currentVideo = null;
+let currentVideo = null;          // { kind:'file'|'url', path?, url?, name, size?, type? }
 let currentVideoTempPath = null;
 
 const playbackState = {
@@ -62,10 +61,21 @@ const playbackState = {
   duration: 0,
 };
 
-const users = new Map();      // socketId -> { username, isHost, joinedAt, kicked }
-const mutedUsers = new Set(); // lowercase usernames muted by the host (survives reconnect)
-const chatMessages = [];      // { id, username, text, timestamp, type }
-const msgTimes = new Map();   // socketId -> [timestamps] for rate limiting
+// socketId -> { id, username, role:'owner'|'admin'|'member', joinedAt, kicked,
+//               sessionToken, chatSocketIds:Set }
+const users = new Map();
+const recentUsers = new Map(); // short-lived snapshots so a reconnect can restore role
+const mutedUsers = new Set();     // lowercase usernames, survives reconnect
+const kickedCooldown = new Map(); // lowercase username -> expiry timestamp
+const chatMessages = [];
+const msgTimes = new Map();
+let pendingTransfer = null;      // { id, fromId, toId, expires }
+let ownerGraceTimer = null;      // short delay before auto-promoting a new owner
+let ownerGraceToken = null;
+let invariantTimer = null;
+let ownershipTransferred = false;
+let roleSequence = 0;
+function nextRoleSeq() { return ++roleSequence; }
 
 // -------------------- helpers --------------------
 function getLocalIPv4Addresses() {
@@ -94,11 +104,8 @@ function computePlaybackTime() {
 
 function escapeHtml(text) {
   return String(text === null || text === undefined ? '' : text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 function addChatMessage(username, text, type = 'chat') {
@@ -114,12 +121,27 @@ function addChatMessage(username, text, type = 'chat') {
   return msg;
 }
 
+function emitSystem(text) {
+  const msg = addChatMessage('system', text, 'system');
+  if (sessionIo) sessionIo.emit('chat:message', msg);
+}
+
+function videoDescriptor() {
+  if (!currentVideo) return null;
+  return {
+    kind: currentVideo.kind,
+    name: currentVideo.name,
+    size: currentVideo.size || 0,
+    type: currentVideo.type || '',
+    url: currentVideo.kind === 'url' ? currentVideo.url : null,
+    key: playbackState.videoKey,
+  };
+}
+
 function broadcastPlaybackState(io, onlySocket = null) {
   const payload = {
     videoKey: playbackState.videoKey,
-    video: currentVideo
-      ? { name: currentVideo.name, size: currentVideo.size, key: playbackState.videoKey }
-      : null,
+    video: videoDescriptor(),
     isPlaying: playbackState.isPlaying,
     currentTime: computePlaybackTime(),
     duration: playbackState.duration,
@@ -130,25 +152,128 @@ function broadcastPlaybackState(io, onlySocket = null) {
 }
 
 function userListPayload() {
-  return Array.from(users.entries()).map(([id, u]) => ({
-    id,
+  return Array.from(users.values()).map((u) => ({
+    id: u.id,
     username: u.username,
-    isHost: u.isHost,
+    role: u.role,
+    isHost: u.role === 'owner',
     muted: mutedUsers.has(u.username.toLowerCase()),
     joinedAt: u.joinedAt,
   }));
 }
 
+function getUserFromSocket(socket) {
+  const direct = users.get(socket.id);
+  if (direct) return direct;
+  const boundId = socket.data && socket.data.userId;
+  return boundId ? users.get(boundId) || null : null;
+}
+
+function isOwner(user) {
+  return !!user && user.role === 'owner';
+}
+
+// Owner may moderate anyone except the owner. Admin may only moderate members.
+function canModerate(actor, target) {
+  if (!actor || !target || target.role === 'owner') return false;
+  if (actor.role === 'owner') return true;
+  return actor.role === 'admin' && target.role === 'member';
+}
+
+// Safety net: regardless of races between disconnect/reconnect and role
+// changes, the session must never have more than one owner.
+function enforceSingleOwner() {
+  const owners = Array.from(users.values()).filter((u) => u.role === 'owner');
+  if (owners.length <= 1) return false;
+  owners.sort((a, b) => (b.roleChangedAt || 0) - (a.roleChangedAt || 0));
+  const keep = owners[0];
+  for (const u of owners.slice(1)) {
+    u.role = u.roleBeforeOwner || 'member';
+    delete u.roleBeforeOwner;
+    u.roleChangedAt = nextRoleSeq();
+  }
+  if (sessionIo) {
+    sessionIo.emit('users:updated', { users: userListPayload() });
+    emitPermissions(sessionIo);
+  }
+  console.log('[session] normalized multiple owners, kept', keep.username);
+  return true;
+}
+
+function emitToUser(io, user, event, payload) {
+  if (!user) return;
+  const primary = io.sockets.sockets.get(user.id);
+  if (primary) primary.emit(event, payload);
+  for (const sid of user.chatSocketIds) {
+    const s = io.sockets.sockets.get(sid);
+    if (s) s.emit(event, payload);
+  }
+}
+
+function emitPermissions(io) {
+  for (const socket of io.sockets.sockets.values()) {
+    const user = getUserFromSocket(socket);
+    if (!user) continue;
+    socket.emit('permissions:updated', {
+      username: user.username,
+      isHost: user.role === 'owner',
+      role: user.role,
+      ownerToken: user.role === 'owner' ? user.ownerToken : null,
+      muted: mutedUsers.has(user.username.toLowerCase()),
+    });
+  }
+}
+
+function validateMediaUrl(raw) {
+  let url;
+  try { url = new URL(String(raw || '').trim()); } catch {
+    return { ok: false, error: 'Enter a valid URL (for example https://example.com/video.mp4)' };
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return { ok: false, error: 'Only HTTP and HTTPS URLs are supported' };
+  }
+  if (url.username || url.password) {
+    return { ok: false, error: 'URLs containing a username or password are not allowed' };
+  }
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host === '0.0.0.0' || host === '::1' ||
+      host === '::' || host.endsWith('.localhost') || host.endsWith('.local') ||
+      host.startsWith('169.254.')) {
+    return { ok: false, error: 'Loopback, link-local and internal addresses are not allowed' };
+  }
+  // No server-side fetch/proxy happens here — the browser loads the URL directly.
+  let name = 'Stream';
+  try {
+    const parts = decodeURIComponent(url.pathname).split('/').filter(Boolean);
+    if (parts.length) name = parts[parts.length - 1].slice(0, 120);
+  } catch {}
+  return { ok: true, url: url.toString(), name };
+}
+
+function activateVideo(descriptor, announceText) {
+  currentVideo = descriptor;
+  if (descriptor.kind === 'file') currentVideoTempPath = descriptor.path;
+  else {
+    if (currentVideoTempPath && fs.existsSync(currentVideoTempPath)) {
+      try { fs.unlinkSync(currentVideoTempPath); } catch {}
+    }
+    currentVideoTempPath = null;
+  }
+  playbackState.videoKey = crypto.randomUUID();
+  playbackState.isPlaying = false;
+  playbackState.currentTime = 0;
+  playbackState.lastUpdate = Date.now();
+  playbackState.duration = 0;
+  const v = videoDescriptor();
+  if (sessionIo) sessionIo.emit('video:changed', { video: v, system: announceText || null });
+  console.log(`[session] video source: ${descriptor.kind} ${descriptor.name}`);
+  return v;
+}
+
 function stopSession() {
   sessionStartError = null;
-  if (sessionIo) {
-    try { sessionIo.close(); } catch {}
-    sessionIo = null;
-  }
-  if (sessionServer) {
-    try { sessionServer.close(); } catch {}
-    sessionServer = null;
-  }
+  if (sessionIo) { try { sessionIo.close(); } catch {} sessionIo = null; }
+  if (sessionServer) { try { sessionServer.close(); } catch {} sessionServer = null; }
   sessionPort = null;
   sessionUrl = null;
   hostToken = null;
@@ -163,8 +288,16 @@ function stopSession() {
   playbackState.lastUpdate = 0;
   playbackState.duration = 0;
   users.clear();
+  recentUsers.clear();
   mutedUsers.clear();
+  kickedCooldown.clear();
   chatMessages.length = 0;
+  msgTimes.clear();
+  pendingTransfer = null;
+  if (ownerGraceTimer) { clearTimeout(ownerGraceTimer); ownerGraceTimer = null; }
+  ownerGraceToken = null;
+  ownershipTransferred = false;
+  if (invariantTimer) { clearInterval(invariantTimer); invariantTimer = null; }
   console.log('[session] stopped');
 }
 
@@ -174,7 +307,6 @@ function startSessionServer(port) {
 
     const app = express();
 
-    // CORS headers (trusted local network; setup UI may run on a different port)
     app.use((req, res, next) => {
       res.header('Access-Control-Allow-Origin', '*');
       res.header('Access-Control-Allow-Headers', 'Content-Type, X-Host-Token, X-File-Name');
@@ -186,32 +318,29 @@ function startSessionServer(port) {
     app.use(express.static(PUBLIC_DIR));
 
     // pkg snapshots cannot serve Socket.IO's client from node_modules at runtime.
-    // Always serve our bundled copy (public/js/socket.io.js) for the canonical path too.
     app.get('/socket.io/socket.io.js', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'js', 'socket.io.js')));
 
-    app.get('/', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'watch.html')));
-    app.get('/watch', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'watch.html')));
-    app.get('/join', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'join.html')));
+    app.get('/', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'watch.html')));
+    app.get('/watch', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'watch.html')));
+    app.get('/join', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'join.html')));
+    app.get('/chat', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'chat.html')));
 
-    app.get('/api/video-info', (req, res) => {
+    app.get('/api/video-info', (_req, res) => {
       if (!currentVideo) return res.status(404).json({ error: 'No video selected' });
-      res.json({
-        name: currentVideo.name,
-        size: currentVideo.size,
-        type: currentVideo.type,
-        key: playbackState.videoKey,
-      });
+      res.json(videoDescriptor());
     });
 
-    // Video upload (host only). Streamed straight to disk, never held in memory.
+    // Video upload (host token only). Streamed straight to disk.
     app.post('/api/video/upload', (req, res) => {
-      const token = req.headers['x-host-token'];
-      if (!hostToken || token !== hostToken) {
-        return res.status(401).json({ error: 'Host token required' });
-      }
+      const suppliedHost = req.headers['x-host-token'];
+      const suppliedOwner = req.headers['x-owner-token'];
+      const currentOwner = Array.from(users.values()).find((u) => u.role === 'owner');
+      const authorized =
+        (hostToken && suppliedHost === hostToken && !ownershipTransferred) ||
+        (currentOwner && suppliedOwner && suppliedOwner === currentOwner.ownerToken);
+      if (!authorized) return res.status(401).json({ error: 'Owner authorization required' });
       const rawName = req.headers['x-file-name'];
       if (!rawName) return res.status(400).json({ error: 'File name missing' });
-
       const name = path.basename(String(rawName)).replace(/[^a-zA-Z0-9._\-]/g, '_') || 'video.bin';
       const ext = path.extname(name).toLowerCase();
       if (!ALLOWED_VIDEO_EXTS.includes(ext)) {
@@ -233,7 +362,6 @@ function startSessionServer(port) {
           return res.status(413).json({ error: `File too large (max ${MAX_VIDEO_SIZE_GB} GB)` });
         }
       });
-
       req.pipe(out);
 
       out.on('finish', () => {
@@ -242,51 +370,29 @@ function startSessionServer(port) {
         try { stat = fs.statSync(tmpPath); } catch {
           return res.status(500).json({ error: 'Failed to save uploaded video' });
         }
-
-        // Replace previous video (old temp file is deleted)
-        if (currentVideoTempPath && fs.existsSync(currentVideoTempPath)) {
-          try { fs.unlinkSync(currentVideoTempPath); } catch {}
-        }
-
-        currentVideo = { path: tmpPath, name, size: stat.size, type: ext };
-        currentVideoTempPath = tmpPath;
-
-        playbackState.videoKey = crypto.randomUUID();
-        playbackState.isPlaying = false;
-        playbackState.currentTime = 0;
-        playbackState.lastUpdate = Date.now();
-        playbackState.duration = 0;
-
-        console.log(`[session] video selected: ${name} (${stat.size} bytes)`);
-        if (sessionIo) {
-          sessionIo.emit('video:changed', {
-            video: { name, size: stat.size, type: ext, key: playbackState.videoKey },
-          });
-        }
-
-        res.json({ ok: true, video: { name, size: stat.size, type: ext, key: playbackState.videoKey } });
+        const v = activateVideo({ kind: 'file', path: tmpPath, name, size: stat.size, type: ext });
+        res.json({ ok: true, video: v });
       });
-
       out.on('error', () => {
         if (aborted) return;
         res.status(500).json({ error: 'Failed to save video' });
       });
     });
 
-    // Video streaming with HTTP range request support (enables seeking)
+    // Local-file streaming with HTTP range support (URL sources are loaded by browsers directly).
     app.get('/video', (req, res) => {
-      if (!currentVideo) return res.status(404).json({ error: 'No video selected' });
+      if (!currentVideo || currentVideo.kind !== 'file') {
+        return res.status(404).json({ error: 'No local video selected' });
+      }
       let stat;
       try { stat = fs.statSync(currentVideo.path); } catch {
         return res.status(404).json({ error: 'Video file not found' });
       }
       const fileSize = stat.size;
       const range = req.headers.range;
-
       const typeMap = {
         '.mp4': 'video/mp4', '.m4v': 'video/mp4',
-        '.webm': 'video/webm', '.ogg': 'video/ogg',
-        '.mov': 'video/quicktime',
+        '.webm': 'video/webm', '.ogg': 'video/ogg', '.mov': 'video/quicktime',
       };
       const contentType = typeMap[path.extname(currentVideo.path).toLowerCase()] || 'video/mp4';
 
@@ -294,17 +400,17 @@ function startSessionServer(port) {
         const parts = range.replace(/bytes=/, '').split('-');
         let start, end;
         if (parts[0] === '') {
-          // Suffix-byte-range-spec (e.g. bytes=-500)
           end = fileSize - 1;
           start = Math.max(0, fileSize - parseInt(parts[1], 10));
         } else {
           start = parseInt(parts[0], 10);
           end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
         }
-        if (start >= fileSize) {
+        if (start >= fileSize || !isFinite(start)) {
           res.status(416).send('Requested range not satisfiable');
           return;
         }
+        end = Math.min(end, fileSize - 1);
         const chunkSize = end - start + 1;
         res.writeHead(206, {
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,
@@ -323,23 +429,24 @@ function startSessionServer(port) {
       }
     });
 
-        const srv = http.createServer(app);
+    const srv = http.createServer(app);
     const io = new IOServer(srv, {
       cors: { origin: '*' },
       pingTimeout: 20000,
       pingInterval: 5000,
     });
 
+    invariantTimer = setInterval(enforceSingleOwner, 2000);
+
     // ---------------- Socket.IO ----------------
     io.on('connection', (socket) => {
-      console.log('[session] socket connected:', socket.id);
-
       function ack(cb, ok, message, extra) {
-        if (typeof cb === 'function') cb({ ok, message, ...extra });
+        if (typeof cb === 'function') cb({ ok, message, ...(extra || {}) });
       }
 
+      // ---- join / session-bound token ----
       socket.on('join:request', (data, cb) => {
-        const { username, hostToken: token } = data || {};
+        const { username, hostToken: token, sessionToken } = data || {};
         if (!username || typeof username !== 'string') return ack(cb, false, 'Username is required');
         const trimmed = username.trim();
         if (trimmed.length < 2 || trimmed.length > 32)
@@ -347,32 +454,119 @@ function startSessionServer(port) {
         if (!USERNAME_RE.test(trimmed))
           return ack(cb, false, 'Username contains invalid characters');
 
-        const isHost = token === hostToken || (users.size === 0 && !hostToken);
+        const key = trimmed.toLowerCase();
+        const cooldown = kickedCooldown.get(key);
+        if (cooldown && cooldown > Date.now())
+          return ack(cb, false, 'You were recently removed from this session. Please wait before rejoining.');
+        kickedCooldown.delete(key);
 
-        // Duplicate username (case-insensitive). Replace stale socket on reconnect.
-        const existing = [...users.entries()].find(([, u]) => u.username.toLowerCase() === trimmed.toLowerCase());
-        if (existing && existing[0] !== socket.id) {
-          const oldSocket = io.sockets.sockets.get(existing[0]);
+        // A brief disconnect removes the live record; restore role from the cache.
+        let restored = null;
+        if (sessionToken && recentUsers.has(sessionToken)) {
+          const snapshot = recentUsers.get(sessionToken);
+          recentUsers.delete(sessionToken);
+          if (snapshot.expires > Date.now() && snapshot.username.toLowerCase() === key) restored = snapshot;
+        }
+        if (restored && restored.role === 'owner' && ownerGraceTimer) {
+          clearTimeout(ownerGraceTimer); ownerGraceTimer = null; ownerGraceToken = null;
+        }
+
+        // Reconnect using an existing session token keeps role, mute and identity.
+        const existingByToken = sessionToken
+          ? Array.from(users.values()).find((u) => u.sessionToken === sessionToken)
+          : null;
+        if (existingByToken && existingByToken.id !== socket.id) {
+          const oldPrimary = io.sockets.sockets.get(existingByToken.id);
+          // A returning owner cancels any pending auto-promotion.
+          if (ownerGraceTimer && ownerGraceToken === existingByToken.sessionToken) {
+            clearTimeout(ownerGraceTimer); ownerGraceTimer = null; ownerGraceToken = null;
+          }
+          // Rebind first so the old socket's disconnect handler cannot remove the user.
+          for (const [sid, u] of users.entries()) if (u === existingByToken) users.delete(sid);
+          existingByToken.id = socket.id;
+          users.set(socket.id, existingByToken);
+          // Enforce exactly one owner: demote anyone auto-promoted while this user was away.
+          if (existingByToken.role === 'owner') {
+            for (const u of users.values()) {
+              if (u !== existingByToken && u.role === 'owner') {
+                u.role = u.roleBeforeOwner || 'member';
+                delete u.roleBeforeOwner;
+              }
+            }
+          }
+          if (oldPrimary) {
+            oldPrimary.emit('user:replaced', { message: 'You joined from another device or tab.' });
+            oldPrimary.disconnect(true);
+          }
+          const p = sessionPayload(socket, existingByToken);
+          ack(cb, true, null, p);
+          socket.emit('joined', p);
+          broadcastPlaybackState(io, socket);
+          emitPermissions(io);
+          return;
+        }
+
+        let preservedRole = null;
+        const existingName = Array.from(users.entries()).find(([, u]) => u.username.toLowerCase() === key);
+        if (existingName && existingName[0] !== socket.id) {
+          const oldUser = existingName[1];
+          if (oldUser.role === 'owner') {
+            preservedRole = 'owner';
+            if (ownerGraceTimer) { clearTimeout(ownerGraceTimer); ownerGraceTimer = null; ownerGraceToken = null; }
+          }
+          const oldSocket = io.sockets.sockets.get(existingName[0]);
           if (oldSocket) {
             oldSocket.emit('user:replaced', { message: 'You joined from another device or tab.' });
             oldSocket.disconnect(true);
           }
-          users.delete(existing[0]);
+          users.delete(existingName[0]);
         }
 
-        users.set(socket.id, { username: trimmed, isHost, joinedAt: Date.now() });
-        console.log(`[session] ${trimmed} joined (host=${isHost})`);
-
-        const payload = {
+        const isFirst = users.size === 0;
+        const hostClaim = token && token === hostToken && !ownershipTransferred;
+        let role = preservedRole || (restored ? restored.role : ((hostClaim || isFirst) ? 'owner' : 'member'));
+        if (role === 'owner') {
+          for (const u of users.values()) {
+            if (u.role === 'owner') { u.role = u.roleBeforeOwner || 'member'; delete u.roleBeforeOwner; }
+          }
+        }
+        const user = {
+          id: socket.id,
           username: trimmed,
-          isHost,
+          role,
+          joinedAt: Date.now(),
+          roleChangedAt: nextRoleSeq(),
+          kicked: false,
+          sessionToken: sessionToken && /^[a-zA-Z0-9\-]{16,128}$/.test(sessionToken)
+            ? sessionToken : crypto.randomBytes(24).toString('hex'),
+          ownerToken: crypto.randomBytes(16).toString('hex'),
+          chatSocketIds: new Set(),
+        };
+        users.set(socket.id, user);
+        console.log(`[session] ${trimmed} joined (${role})`);
+
+        const p = sessionPayload(socket, user);
+        ack(cb, true, null, p);
+        socket.emit('joined', p);
+        broadcastPlaybackState(io, socket);
+        io.emit('user:joined', { username: trimmed, users: userListPayload() });
+        emitSystem(`${escapeHtml(trimmed)} joined the session`);
+        emitPermissions(io);
+      });
+
+      function sessionPayload(socket, user) {
+        return {
+          username: user.username,
+          isHost: user.role === 'owner',
+          role: user.role,
           socketId: socket.id,
+          userId: user.id,
+          sessionToken: user.sessionToken,
+          ownerToken: user.role === 'owner' ? user.ownerToken : null,
           users: userListPayload(),
           messages: chatMessages.slice().reverse(),
           videoKey: playbackState.videoKey,
-          video: currentVideo
-            ? { name: currentVideo.name, size: currentVideo.size, type: currentVideo.type, key: playbackState.videoKey }
-            : null,
+          video: videoDescriptor(),
           playback: {
             videoKey: playbackState.videoKey,
             isPlaying: playbackState.isPlaying,
@@ -381,27 +575,36 @@ function startSessionServer(port) {
             timestamp: Date.now(),
           },
         };
-        ack(cb, true, null, payload);
-        socket.emit('joined', payload);
+      }
 
-        // The "joined" payload already carries the video key and playback state.
-        // Do NOT also emit "video:changed" here: that would reset a new joiner's
-        // pending playback state and leave them paused at the wrong position.
-        broadcastPlaybackState(io, socket);
-
-        io.emit('user:joined', { username: trimmed, isHost, users: userListPayload() });
-        const sys = addChatMessage('system', `${escapeHtml(trimmed)} joined the session`, 'system');
-        io.emit('chat:message', sys);
+      // ---- standalone chat authentication (token from URL fragment) ----
+      socket.on('chat:auth', (data, cb) => {
+        const token = data && data.token;
+        const user = token ? Array.from(users.values()).find((u) => u.sessionToken === token) : null;
+        if (!user) return ack(cb, false, 'Your session is invalid or has ended. Please join the session first.');
+        socket.data.userId = user.id;
+        user.chatSocketIds.add(socket.id);
+        const p = {
+          username: user.username,
+          isHost: user.role === 'owner',
+          role: user.role,
+          muted: mutedUsers.has(user.username.toLowerCase()),
+          users: userListPayload(),
+          messages: chatMessages.slice().reverse(),
+        };
+        ack(cb, true, null, p);
+        socket.emit('chat:ready', p);
       });
 
+      // ---- chat ----
       socket.on('chat:message', (data, cb) => {
-        const user = users.get(socket.id);
+        const user = getUserFromSocket(socket);
         if (!user) return ack(cb, false, 'Not joined');
         if (mutedUsers.has(user.username.toLowerCase()))
           return ack(cb, false, 'You have been muted by the host');
-        const { text } = data || {};
-        if (!text || !text.trim()) return ack(cb, false, 'Message is empty');
-        const msg = text.trim();
+        const text = data && data.text;
+        if (!text || !String(text).trim()) return ack(cb, false, 'Message is empty');
+        const msg = String(text).trim();
         if (msg.length > MAX_MESSAGE_LENGTH)
           return ack(cb, false, `Message too long (max ${MAX_MESSAGE_LENGTH} characters)`);
 
@@ -417,9 +620,10 @@ function startSessionServer(port) {
         ack(cb, true, null, { id: out.id });
       });
 
+      // ---- playback (owner only, enforced here) ----
       socket.on('playback:control', (data, cb) => {
-        const user = users.get(socket.id);
-        if (!user || !user.isHost) return ack(cb, false, 'Only the host can control playback');
+        const user = getUserFromSocket(socket);
+        if (!isOwner(user)) return ack(cb, false, 'Only the owner can control playback');
         const { action, time } = data || {};
         const now = Date.now();
         const current = computePlaybackTime();
@@ -439,7 +643,6 @@ function startSessionServer(port) {
         } else {
           return ack(cb, false, 'Unknown playback action');
         }
-
         io.emit('playback:control', {
           action,
           time: playbackState.currentTime,
@@ -451,85 +654,210 @@ function startSessionServer(port) {
       });
 
       socket.on('video:duration', (data, cb) => {
-        const user = users.get(socket.id);
-        if (!user || !user.isHost) return ack(cb, false, 'Host only');
+        const user = getUserFromSocket(socket);
+        if (!isOwner(user)) return ack(cb, false, 'Owner only');
         const { duration } = data || {};
         if (typeof duration === 'number' && isFinite(duration)) playbackState.duration = duration;
         ack(cb, true);
       });
 
-      // ---- host moderation ----
-      socket.on('host:kick', (data, cb) => {
-        const host = users.get(socket.id);
-        if (!host || !host.isHost) return ack(cb, false, 'Only the host can do that');
-        const targetId = data && data.targetId;
-        const target = users.get(targetId);
-        if (!target) return ack(cb, false, 'Participant not found');
-        if (target.isHost) return ack(cb, false, 'You cannot remove yourself');
-        const targetSocket = io.sockets.sockets.get(targetId);
-
-        target.kicked = true;
-        const sys = addChatMessage('system', `${escapeHtml(target.username)} was removed by the host`, 'system');
-        io.emit('chat:message', sys);
-        if (targetSocket) {
-          targetSocket.emit('user:kicked', { message: 'You were removed from the session by the host.' });
-          setTimeout(() => targetSocket.disconnect(true), 100);
-        }
-        ack(cb, true);
+      // ---- video URL (owner only) ----
+      socket.on('video:url', (data, cb) => {
+        const user = getUserFromSocket(socket);
+        if (!isOwner(user)) return ack(cb, false, 'Only the owner can change the video');
+        const check = validateMediaUrl(data && data.url);
+        if (!check.ok) return ack(cb, false, check.error);
+        const title = data && typeof data.title === 'string' ? data.title.trim().slice(0, 120) : '';
+        const v = activateVideo({ kind: 'url', url: check.url, name: title || check.name, type: 'url' });
+        ack(cb, true, null, { video: v });
       });
 
+      // ---- moderation ----
       socket.on('host:mute', (data, cb) => {
-        const host = users.get(socket.id);
-        if (!host || !host.isHost) return ack(cb, false, 'Only the host can do that');
-        const targetId = data && data.targetId;
-        const target = users.get(targetId);
-        if (!target) return ack(cb, false, 'Participant not found');
-        if (target.isHost) return ack(cb, false, 'You cannot mute yourself');
-
+        const actor = getUserFromSocket(socket);
+        const target = users.get(data && data.targetId);
+        if (!canModerate(actor, target)) return ack(cb, false, 'You cannot moderate this participant');
         const key = target.username.toLowerCase();
         const shouldMute = !mutedUsers.has(key);
         if (shouldMute) mutedUsers.add(key); else mutedUsers.delete(key);
-
-        const targetSocket = io.sockets.sockets.get(targetId);
-        if (targetSocket) targetSocket.emit('user:muted', { muted: shouldMute });
+        emitToUser(io, target, 'user:muted', { muted: shouldMute });
         io.emit('users:updated', { users: userListPayload() });
-        const sys = addChatMessage('system', `${escapeHtml(target.username)} ${shouldMute ? 'was muted' : 'was unmuted'} by the host`, 'system');
-        io.emit('chat:message', sys);
+        emitSystem(`${escapeHtml(target.username)} ${shouldMute ? 'was muted' : 'was unmuted'} by ${escapeHtml(actor.username)}`);
+        emitPermissions(io);
         ack(cb, true);
       });
 
-      socket.on('disconnect', (reason) => {
+      socket.on('host:kick', (data, cb) => {
+        const actor = getUserFromSocket(socket);
+        const target = users.get(data && data.targetId);
+        if (!canModerate(actor, target)) return ack(cb, false, 'You cannot moderate this participant');
+        target.kicked = true;
+        target.sessionToken = null;
+        kickedCooldown.set(target.username.toLowerCase(), Date.now() + KICK_COOLDOWN_MS);
+        emitSystem(`${escapeHtml(target.username)} was removed by ${escapeHtml(actor.username)}`);
+        emitToUser(io, target, 'user:kicked', { message: 'You were removed from the session by a moderator.' });
+        const primary = io.sockets.sockets.get(target.id);
+        if (primary) setTimeout(() => primary.disconnect(true), 100);
+        for (const sid of target.chatSocketIds) {
+          const s = io.sockets.sockets.get(sid);
+          if (s) setTimeout(() => s.disconnect(true), 100);
+        }
+        ack(cb, true);
+      });
+
+      socket.on('host:role', (data, cb) => {
+        const actor = getUserFromSocket(socket);
+        if (!isOwner(actor)) return ack(cb, false, 'Only the owner can manage admins');
+        const target = users.get(data && data.targetId);
+        if (!target) return ack(cb, false, 'Participant not found');
+        const action = data && data.action;
+        if (action === 'promote') {
+          if (target.role !== 'member') return ack(cb, false, 'This participant is not a regular member');
+          target.role = 'admin';
+          target.roleChangedAt = nextRoleSeq();
+          emitSystem(`${escapeHtml(target.username)} was promoted to admin`);
+        } else if (action === 'demote') {
+          if (target.role !== 'admin') return ack(cb, false, 'This participant is not an admin');
+          target.role = 'member';
+          target.roleChangedAt = nextRoleSeq();
+          emitSystem(`${escapeHtml(target.username)} was demoted to member`);
+        } else {
+          return ack(cb, false, 'Unknown role action');
+        }
+        io.emit('users:updated', { users: userListPayload() });
+        emitPermissions(io);
+        ack(cb, true);
+      });
+
+      // ---- host transfer: owner requests, target accepts/rejects ----
+      socket.on('host:transfer:request', (data, cb) => {
+        const actor = getUserFromSocket(socket);
+        if (!isOwner(actor)) return ack(cb, false, 'Only the owner can transfer ownership');
+        const target = users.get(data && data.targetId);
+        if (!target) return ack(cb, false, 'Participant not found');
+        if (target.role === 'owner') return ack(cb, false, 'You are already the owner');
+        if (pendingTransfer && pendingTransfer.expires > Date.now())
+          return ack(cb, false, 'A transfer request is already pending');
+        pendingTransfer = {
+          id: crypto.randomUUID(),
+          fromId: actor.id,
+          toId: target.id,
+          expires: Date.now() + TRANSFER_TIMEOUT_MS,
+        };
+        emitToUser(io, target, 'host:transfer:offer', {
+          id: pendingTransfer.id,
+          from: actor.username,
+        });
+        ack(cb, true, null, { target: target.username });
+      });
+
+      socket.on('host:transfer:respond', (data, cb) => {
+        const user = getUserFromSocket(socket);
+        if (!user || !pendingTransfer || pendingTransfer.toId !== user.id ||
+            pendingTransfer.expires <= Date.now())
+          return ack(cb, false, 'There is no pending transfer for you');
+        if (data && data.id && data.id !== pendingTransfer.id)
+          return ack(cb, false, 'The transfer request has expired');
+        const accepted = !!(data && data.accept);
+        const from = users.get(pendingTransfer.fromId);
+        const to = users.get(pendingTransfer.toId);
+        pendingTransfer = null;
+        if (!accepted) {
+          emitToUser(io, from, 'host:transfer:declined', { by: user.username });
+          emitSystem(`${escapeHtml(user.username)} declined the host transfer`);
+          return ack(cb, true, null, { accepted: false });
+        }
+        if (!from || !to) return ack(cb, false, 'One of the participants has left');
+        ownershipTransferred = true;
+        if (ownerGraceTimer) { clearTimeout(ownerGraceTimer); ownerGraceTimer = null; ownerGraceToken = null; }
+        from.role = 'member';
+        from.roleChangedAt = nextRoleSeq();
+        to.role = 'owner';
+        to.roleChangedAt = nextRoleSeq();
+        enforceSingleOwner();
+        io.emit('host:transfer:complete', {
+          previousOwner: from.username,
+          newOwner: to.username,
+          users: userListPayload(),
+        });
+        emitSystem(`${escapeHtml(to.username)} is now the owner. ${escapeHtml(from.username)} is now a member.`);
+        io.emit('users:updated', { users: userListPayload() });
+        emitPermissions(io);
+        ack(cb, true, null, { accepted: true });
+      });
+
+      // ---- disconnect ----
+      socket.on('disconnect', () => {
+        // Pop-out chat sockets share an identity but are not separate participants.
+        if (socket.data && socket.data.userId) {
+          const owner = users.get(socket.data.userId);
+          if (owner) owner.chatSocketIds.delete(socket.id);
+          return;
+        }
         const user = users.get(socket.id);
         if (!user) return;
+        if (user.sessionToken && !user.kicked) {
+          recentUsers.set(user.sessionToken, {
+            username: user.username,
+            role: user.role,
+            roleChangedAt: user.roleChangedAt,
+            expires: Date.now() + 30000,
+          });
+        }
         users.delete(socket.id);
-        console.log(`[session] ${user.username} disconnected (${reason})`);
+        console.log(`[session] ${user.username} disconnected (${user.role})`);
+
+        if (pendingTransfer && (pendingTransfer.toId === socket.id || pendingTransfer.fromId === socket.id)) {
+          const other = users.get(pendingTransfer.toId === socket.id ? pendingTransfer.fromId : pendingTransfer.toId);
+          pendingTransfer = null;
+          emitToUser(io, other, 'host:transfer:declined', { by: user.username, reason: 'left' });
+        }
+
         io.emit('user:left', { username: user.username, users: userListPayload() });
-        // A kicked user already had a "was removed by the host" message emitted.
-        if (!user.kicked) {
-          const sys = addChatMessage('system', `${escapeHtml(user.username)} left the session`, 'system');
-          io.emit('chat:message', sys);
+        if (!user.kicked) emitSystem(`${escapeHtml(user.username)} left the session`);
+
+        // If the owner left, wait briefly before auto-promoting. A page reload or
+        // network blip reconnects with the same session token and cancels this.
+        if (user.role === 'owner' && users.size > 0) {
+          if (ownerGraceTimer) clearTimeout(ownerGraceTimer);
+          ownerGraceToken = user.sessionToken;
+          ownerGraceTimer = setTimeout(() => {
+            ownerGraceTimer = null;
+            ownerGraceToken = null;
+            if (ownershipTransferred) return; // a real transfer already decided ownership
+            const candidates = Array.from(users.values()).filter((u) => u.role !== 'owner');
+            if (!candidates.length) return;
+            const next = candidates.find((u) => u.role === 'admin') || candidates[0];
+            ownershipTransferred = true;
+            next.roleBeforeOwner = next.role;
+            next.role = 'owner';
+            next.roleChangedAt = nextRoleSeq();
+            enforceSingleOwner();
+            emitSystem(`${escapeHtml(next.username)} is now the owner.`);
+            io.emit('host:transfer:complete', {
+              previousOwner: user.username,
+              newOwner: next.username,
+              users: userListPayload(),
+            });
+            io.emit('users:updated', { users: userListPayload() });
+            emitPermissions(io);
+          }, 5000);
         }
-        // Transfer host role if the host left and others remain (the user:left
-        // event was already emitted above — do not emit it a second time).
-        if (user.isHost && users.size > 0) {
-          const first = users.values().next().value;
-          first.isHost = true;
-          io.emit('users:updated', { users: userListPayload() });
-        }
+        emitPermissions(io);
       });
     });
 
-    const listenReady = new Promise((resolve, reject) => {
-      srv.once('error', reject);
+    const listenReady = new Promise((listenResolve, listenReject) => {
+      srv.once('error', listenReject);
       srv.listen(port, '0.0.0.0', () => {
-        srv.removeListener('error', reject);
+        srv.removeListener('error', listenReject);
         sessionServer = srv;
         sessionIo = io;
         sessionPort = port;
         sessionUrl = sessionBaseUrl(port);
         hostToken = crypto.randomBytes(16).toString('hex');
         console.log(`[session] listening on 0.0.0.0:${sessionPort} (${sessionUrl})`);
-        resolve({ port, url: sessionUrl, hostToken });
+        listenResolve({ port, url: sessionUrl, hostToken, chatUrl: `${sessionUrl}/chat` });
       });
     });
 
@@ -546,9 +874,7 @@ const bootstrapApp = express();
 bootstrapApp.use(express.static(PUBLIC_DIR));
 bootstrapApp.use(express.json({ limit: '1mb' }));
 
-bootstrapApp.get('/', (_req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'setup.html'));
-});
+bootstrapApp.get('/', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'setup.html')));
 
 bootstrapApp.get('/api/status', (_req, res) => {
   res.json({
@@ -558,20 +884,18 @@ bootstrapApp.get('/api/status', (_req, res) => {
     hostToken,
     ips: getLocalIPv4Addresses(),
     participants: sessionIo ? sessionIo.engine.clientsCount : 0,
-    video: currentVideo ? { name: currentVideo.name, size: currentVideo.size } : null,
+    video: currentVideo ? { name: currentVideo.name, size: currentVideo.size, kind: currentVideo.kind } : null,
     error: sessionStartError,
   });
 });
 
 bootstrapApp.post('/api/start', async (req, res) => {
   if (sessionServer) return res.status(400).json({ error: 'Session server already running' });
-  const { port } = req.body || {};
-  const p = parseInt(port, 10);
+  const p = parseInt((req.body || {}).port, 10);
   if (!p || p < 1024 || p > 65535)
     return res.status(400).json({ error: 'Invalid port (choose 1024-65535)' });
   try {
-    const info = await startSessionServer(p);
-    res.json({ ok: true, ...info });
+    res.json({ ok: true, ...(await startSessionServer(p)) });
   } catch (err) {
     res.status(500).json({ error: err.message || 'Failed to start session server' });
   }

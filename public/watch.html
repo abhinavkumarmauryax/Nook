@@ -10,19 +10,21 @@
   <header class="app-header">
     <div class="header-left">
       <h1 id="videoTitle">Watch Together</h1>
-      <span class="badge" id="hostBadge" style="display:none">HOST</span>
+      <span class="badge" id="hostBadge" style="display:none">OWNER</span>
+      <span class="badge badge-admin" id="adminBadge" style="display:none">ADMIN</span>
     </div>
     <div class="header-right">
       <span id="connStatus">● Connected</span>
+      <button id="popoutBtnTop" class="btn btn-small" title="Open chat in a new tab">💬 Pop Out</button>
       <button id="leaveBtn" class="btn btn-danger">Leave</button>
     </div>
   </header>
 
-  <div class="main">
+  <div class="main" id="mainLayout">
     <div class="video-section">
       <div class="video-card">
-        <div class="video-wrapper">
-          <video id="video" playsinline preload="metadata"></video>
+        <div class="video-wrapper" id="videoWrapper">
+          <video id="video" playsinline preload="metadata" controlsList="nodownload"></video>
           <div id="loadingOverlay" class="overlay">
             <div class="spinner"></div><span>Loading video…</span>
           </div>
@@ -36,21 +38,25 @@
           <div class="controls">
             <button id="playPauseBtn" class="icon-btn" title="Play/Pause">▶</button>
             <button id="muteBtn" class="icon-btn" title="Mute/unmute">🔊</button>
-            <input id="volumeRange" type="range" min="0" max="1" step="0.1" value="1">
-            <input id="seekRange" type="range" min="0" max="100" value="0" disabled>
+            <input id="volumeRange" type="range" min="0" max="1" step="0.1" value="1" aria-label="Volume">
+            <input id="seekRange" type="range" min="0" max="100" value="0" aria-label="Timeline" title="Only the owner can seek">
             <span id="timeDisplay">0:00 / 0:00</span>
             <button id="fullscreenBtn" class="icon-btn" title="Fullscreen">⛶</button>
           </div>
         </div>
         <div class="video-footer">
           <button id="selectVideoBtn" class="btn" style="display:none">📁 Select Video</button>
+          <button id="videoUrlBtn" class="btn" style="display:none">🔗 Video URL</button>
           <input id="hostFileInput" type="file" accept="video/*" style="display:none">
-          <button id="testVideoBtn" class="btn btn-small" style="margin-left:auto">🧪 Test Video</button>
+          <button id="toggleChatBtn" class="btn btn-small" title="Show/hide chat">💬 Hide Chat</button>
+          <button id="popoutBtn" class="btn btn-small" title="Open chat in a new tab">↗ Pop Out Chat</button>
         </div>
       </div>
     </div>
 
-    <div class="chat-section">
+    <div id="resizeHandle" class="resize-handle" title="Drag to resize chat"></div>
+
+    <div class="chat-section" id="chatSection">
       <div class="chat-card">
         <div class="chat-header">
           <h2>💬 <span id="chatLabel">Chat</span></h2>
@@ -70,7 +76,10 @@
   </div>
 </div>
 <div id="toast"></div>
+<div id="modalRoot"></div>
 <script src="/js/socket.io.js"></script>
+<script src="/js/modal.js"></script>
+<script src="/js/hls.min.js"></script>
 <script src="/js/watch.js"></script>
 </body>
 </html>
