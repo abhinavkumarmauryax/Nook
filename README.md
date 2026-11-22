@@ -1,6 +1,6 @@
 # Nook
 
-<p align="center"><img src="public/assets/nook-logo.png" alt="Nook logo" width="140"></p>
+<p align="center"><img src="public/assets/nook-logo.svg" alt="Nook logo" width="140"></p>
 
 A free, self-hosted watch-party app. One person hosts a server on their computer, picks a local video file or shares a direct video URL, and everyone else joins from a browser to watch in sync and chat in real time.
 
