@@ -1,15 +1,29 @@
 /* Nook - Copyright (c) 2026 Abhi. Source-available, non-commercial licence. See LICENSE. */
-/* Provider-independent GIF search. A free, keyless provider (urGIF) is used by
-   default; Tenor/GIPHY can be configured with GIF_PROVIDER + GIF_API_KEY.
-   No keys are hardcoded and no media is downloaded or cached by the server. */
+/* Provider-independent GIF search. GifSnap is the default free, keyless
+   provider with a large searchable library; Tenor/GIPHY/urGIF can be selected
+   with GIF_PROVIDER (+ GIF_API_KEY where required). No keys are hardcoded and
+   no media is downloaded or cached by the server. */
 'use strict';
 
-const PROVIDER = (process.env.GIF_PROVIDER || 'urgif').toLowerCase();
+const PROVIDER = (process.env.GIF_PROVIDER || 'gifsnap').toLowerCase();
 const API_KEY = process.env.GIF_API_KEY || '';
 
 function configured() {
-  if (PROVIDER === 'urgif') return true;
+  if (PROVIDER === 'gifsnap' || PROVIDER === 'urgif') return true;
   return !!(API_KEY && (PROVIDER === 'tenor' || PROVIDER === 'giphy'));
+}
+
+function normaliseGifsnap(item) {
+  const anim = item.animated_preview;
+  return {
+    id: String(item.id || ''),
+    url: item.url || '',
+    previewUrl: (anim && anim.url) || item.preview_url || item.url || '',
+    staticUrl: item.preview_url || '',
+    width: Number(item.width) || 0,
+    height: Number(item.height) || 0,
+    alt: (item.title || 'GIF').slice(0, 80),
+  };
 }
 
 function normaliseUrgif(item) {
@@ -63,6 +77,14 @@ async function fetchJson(url) {
 async function search(query) {
   if (!configured()) return { configured: false, results: [] };
   const q = String(query || '').trim().slice(0, 80);
+
+  if (PROVIDER === 'gifsnap') {
+    const params = new URLSearchParams({ limit: '16' });
+    if (!q) params.set('page', '1');
+    const path = q ? 'search' : 'trending';
+    const data = await fetchJson(`https://gifsnap.com/api/v1/gifs/${path}?q=${encodeURIComponent(q)}&${params}`);
+    return { configured: true, results: (data.data || []).map(normaliseGifsnap).filter((r) => r.url) };
+  }
 
   if (PROVIDER === 'urgif') {
     const params = new URLSearchParams({ limit: '16' });

@@ -135,14 +135,14 @@ This app needs a **TCP** tunnel (HTTP/WebSocket). Playit's free UDP tunnels cann
 | --- | --- | --- |
 | `PORT` | `3000` | Setup UI port |
 | `MAX_VIDEO_SIZE_GB` | `2` | Maximum local video size |
-| `GIF_PROVIDER` | none | `tenor` or `giphy` for the GIF picker search |
+| `GIF_PROVIDER` | `gifsnap` | `gifsnap`, `urgif`, `tenor` or `giphy` for the GIF picker search |
 | `GIF_API_KEY` | none | API key for the configured GIF provider |
 
 ## Ephemeral chat and GIFs
 
 Nook chat is **ephemeral**: the server never stores, files or replays messages. It only validates and relays each live message to participants who are connected at that moment. New joiners (including the standalone `/chat` page and reconnects) start with an empty chat and only see messages sent after they join. Messages live in each browser's memory and disappear when the page is reloaded.
 
-The composer has an emoji picker and a GIF button. With `GIF_PROVIDER` and `GIF_API_KEY` set, the GIF panel can search the configured provider (its API key stays on the server). Without a provider, you can still paste a direct `http(s)://....gif` URL into the panel or the message box. The server never downloads or proxies GIF media, and no external service is needed for ordinary text messaging.
+The composer has an emoji picker and a GIF button. GIF search uses the free, keyless **GifSnap** API by default, with trending and searchable results. Set `GIF_PROVIDER` to `urgif`, `tenor` or `giphy` to switch providers (`GIF_API_KEY` is required for Tenor/GIPHY and stays on the server). You can also paste a direct `http(s)://....gif` URL into the panel or the message box. The server never downloads or proxies GIF media, and no external service is needed for ordinary text messaging.
 
 ## Security notes
 

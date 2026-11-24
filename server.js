@@ -288,7 +288,7 @@ function isAuthorizedOwner(req) {
 }
 
 // Direct GIF URLs only - no server-side fetching, proxying or caching.
-function validateGifUrl(raw) {
+function validateGifUrl(raw, fromProvider) {
   let url;
   try { url = new URL(String(raw || '').trim()); } catch {
     return { ok: false, error: 'Enter a valid GIF URL' };
@@ -297,8 +297,10 @@ function validateGifUrl(raw) {
     return { ok: false, error: 'Only HTTP and HTTPS GIF URLs are supported' };
   if (url.username || url.password)
     return { ok: false, error: 'GIF URLs must not contain credentials' };
-  if (!/\.gif($|\?)/i.test(url.pathname))
-    return { ok: false, error: 'Only direct .gif media URLs are supported' };
+  // Picker results may be animated WebP; pasted URLs must be direct .gif files.
+  const allowed = fromProvider ? /\.(gif|webp)($|\?)/i : /\.gif($|\?)/i;
+  if (!allowed.test(url.pathname))
+    return { ok: false, error: fromProvider ? 'Unsupported media URL' : 'Only direct .gif media URLs are supported' };
   if (url.toString().length > MAX_GIF_URL_LENGTH)
     return { ok: false, error: 'GIF URL is too long' };
   return { ok: true, url: url.toString() };
@@ -749,7 +751,7 @@ function startSessionServer(port) {
             chatStats.rejected++;
             return ack(cb, false, 'GIFs are disabled by the host');
           }
-          const check = validateGifUrl(data && data.url);
+          const check = validateGifUrl(data && data.url, data && data.source === 'provider');
           if (!check.ok) { chatStats.rejected++; console.log('[chat] GIF URL validation failed'); return ack(cb, false, check.error); }
           times.push(now); bucket.set(socket.id, times);
           out = {

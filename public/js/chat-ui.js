@@ -301,7 +301,7 @@
             img.alt = g.alt || 'GIF';
             img.loading = 'lazy';
             card.appendChild(img);
-            card.addEventListener('click', () => sendGif({ kind: 'gif', url: g.url, staticUrl: g.staticUrl, alt: g.alt }));
+            card.addEventListener('click', () => sendGif({ kind: 'gif', url: g.url, staticUrl: g.staticUrl, alt: g.alt, source: 'provider' }));
             gifResults.appendChild(card);
           });
           reflowGif();
