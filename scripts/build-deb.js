@@ -6,7 +6,7 @@ const zlib = require('zlib');
 const root = path.join(__dirname, '..');
 const binary = path.join(root, 'nook-linux-x64');
 const icon = path.join(root, 'public', 'assets', 'nook-icon.png');
-const out = path.join(root, 'nook_2.8.0_amd64.deb');
+const out = path.join(root, 'nook_2.9.0_amd64.deb');
 
 if (!fs.existsSync(binary)) {
   console.error('Run `npm run build:linux` first.');
@@ -60,7 +60,7 @@ function arMember(name, data) {
 
 const control = [
   'Package: nook',
-  'Version: 2.8.0',
+  'Version: 2.9.0',
   'Section: net',
   'Priority: optional',
   'Architecture: amd64',

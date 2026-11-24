@@ -15,6 +15,8 @@ let myUsername = '';
 let myRole = 'member';
 let myIsHost = false;
 let lastUserList = [];
+let chatUI = null;
+function appendMessage(msg) { if (chatUI) chatUI.append(msg); }
 
 function escapeHtml(text) {
   return String(text === null || text === undefined ? '' : text)
@@ -43,9 +45,9 @@ else {
         return;
       }
       myUsername = resp.username;
+      if (chatUI) chatUI.setGifsEnabled(resp.gifsEnabled);
       applyPermissions(resp.role, resp.muted);
       renderUsers(resp.users);
-      (resp.messages || []).forEach(appendMessage);
       scrollToBottom();
       messageInput.disabled = false;
       sendBtn.disabled = false;
@@ -142,91 +144,37 @@ usersEl.addEventListener('click', async (e) => {
   });
 });
 
-function isNearBottom() {
-  return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 100;
-}
 function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
-function appendMessage(msg) {
-  const stick = isNearBottom();
-  const div = document.createElement('div');
-  div.className = 'message ' + msg.type;
-  if (msg.type === 'system') {
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = msg.text;
-    div.appendChild(bubble);
-    lastChatMessage = null;
-  } else {
-    const sender = lastUserList.find((u) => u.username === msg.username);
-    const grouped = !!(lastChatMessage && lastChatMessage.username === msg.username);
-    if (msg.username === myUsername) div.classList.add('me');
-    if (grouped) div.classList.add('grouped');
-    if (grouped) {
-      const sp = document.createElement('span');
-      sp.style.cssText = 'width:32px;flex:none';
-      div.appendChild(sp);
-    } else {
-      const av = document.createElement('span');
-      av.className = 'avatar avatar-' + (sender ? sender.role : 'member');
-      av.textContent = String(msg.username || '?').trim().split(/[\s_.\-]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('') || '?';
-      div.appendChild(av);
-    }
-    const body = document.createElement('div');
-    body.className = 'message-body';
-    if (!grouped) {
-      const head = document.createElement('div');
-      head.className = 'message-head';
-      const name = document.createElement('span');
-      name.className = 'username';
-      name.textContent = msg.username;
-      const meta = document.createElement('span');
-      meta.className = 'meta';
-      meta.textContent = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      head.append(name, meta);
-      body.appendChild(head);
-    }
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = msg.text;
-    body.appendChild(bubble);
-    div.appendChild(body);
-    lastChatMessage = msg;
-  }
-  messagesEl.appendChild(div);
-  if (stick) scrollToBottom();
+
+if (window.NookChatUI) {
+  chatUI = NookChatUI.setup({
+    messagesEl,
+    inputEl: messageInput,
+    getUser: (name) => lastUserList.find((u) => u.username === name),
+    myUsername: () => myUsername,
+    getSessionToken: () => token,
+    send: (payload, cb) => socket.emit('chat:message', payload, cb),
+    toast: showToast,
+  });
 }
-let lastChatMessage = null;
 
 sendBtn.addEventListener('click', () => {
   const text = messageInput.value.trim();
   if (!text) return;
-  socket.emit('chat:message', { text }, (resp) => {
+  let payload = { text };
+  try {
+    const u = new URL(text);
+    if (/^https?:$/.test(u.protocol) && /\.gif($|\?)/i.test(u.pathname)) {
+      payload = { kind: 'gif', url: u.toString(), alt: 'GIF' };
+    }
+  } catch {}
+  socket.emit('chat:message', payload, (resp) => {
     if (!resp || !resp.ok) return showToast((resp && resp.message) || 'Send failed');
     messageInput.value = '';
   });
 });
 messageInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); sendBtn.click(); }
-});
-const emojiBtn = document.getElementById('emojiBtn');
-const emojiPicker = document.getElementById('emojiPicker');
-['😀','😂','🥹','😍','🤔','👍','🔥','✨','🎉','❤️','🙏','👀','🚀','💬','😎','🥳','💡','🎬','🍿','👋'].forEach((em) => {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.textContent = em;
-  b.addEventListener('click', () => {
-    const start = messageInput.selectionStart ?? messageInput.value.length;
-    messageInput.value = messageInput.value.slice(0, start) + em + messageInput.value.slice(messageInput.selectionEnd ?? start);
-    messageInput.focus();
-  });
-  emojiPicker.appendChild(b);
-});
-emojiBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'grid' : 'none';
-});
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('#emojiPicker') && e.target !== emojiBtn) emojiPicker.style.display = 'none';
 });
 
 document.getElementById('toggleUsersBtn').addEventListener('click', () => {
@@ -238,6 +186,7 @@ document.getElementById('toggleUsersBtn').addEventListener('click', () => {
 });
 
 socket.on('chat:message', (msg) => appendMessage(msg));
+socket.on('gifs:state', (data) => { if (chatUI) chatUI.setGifsEnabled(data.enabled); });
 socket.on('users:updated', (data) => renderUsers(data.users));
 socket.on('user:joined', (data) => renderUsers(data.users));
 socket.on('user:left', (data) => renderUsers(data.users));

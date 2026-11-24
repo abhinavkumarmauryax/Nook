@@ -67,6 +67,7 @@
             <h2><span class="inline-icon" data-icon="chat"></span> <span id="chatLabel">Room chat</span></h2>
             <div style="display:flex;align-items:center;gap:10px">
               <span id="roomInfo">Online: <span id="onlineCount">0</span></span>
+              <button id="gifToggleBtn" class="icon-btn" data-icon="gif" title="Disable GIFs" aria-label="Toggle GIFs" style="display:none;width:28px;height:28px"></button>
               <button id="chatPopoutBtn" class="icon-btn" data-icon="popout" title="Open chat in a new window" aria-label="Pop out chat" style="width:28px;height:28px"></button>
             </div>
           </div>
@@ -75,7 +76,25 @@
             <div class="composer-wrap">
               <input id="messageInput" type="text" placeholder="Type a message..." maxlength="500">
               <button id="emojiBtn" class="emoji-btn" data-icon="emoji" title="Emoji" aria-label="Emoji"></button>
-              <div id="emojiPicker" class="emoji-picker" style="display:none"></div>
+              <button id="gifBtn" class="emoji-btn" data-icon="gif" title="Send a GIF" aria-label="Send a GIF">GIF</button>
+              <div id="emojiPicker" class="emoji-picker" style="display:none">
+                <div class="picker-head"><strong>Emoji</strong><button id="emojiClose" class="popup-close" data-icon="close" aria-label="Close emoji picker"></button></div>
+                <input id="emojiSearch" type="text" placeholder="Search emoji..." maxlength="40">
+                <div id="emojiGrid" class="emoji-grid"></div>
+              </div>
+              <div id="gifPanel" class="gif-panel" style="display:none">
+                <div class="gif-panel-head">
+                  <strong>GIFs</strong>
+                  <button id="gifClose" class="popup-close" aria-label="Close GIF picker">✕</button>
+                </div>
+                <input id="gifSearch" type="text" placeholder="Search GIFs..." maxlength="80">
+                <div id="gifStatus" class="gif-status"></div>
+                <div id="gifResults" class="gif-results"></div>
+                <div class="gif-direct">
+                  <input id="gifDirect" type="text" placeholder="Or paste a direct .gif URL" maxlength="600">
+                  <button id="gifDirectSend" class="btn btn-small btn-primary" disabled>Send</button>
+                </div>
+              </div>
             </div>
             <button id="sendBtn" class="btn btn-primary" data-icon="send" aria-label="Send"></button>
           </div>
@@ -127,6 +146,7 @@
 <script src="/js/socket.io.js"></script>
 <script src="/js/icons.js"></script>
 <script src="/js/modal.js"></script>
+<script src="/js/chat-ui.js"></script>
 <script src="/js/hls.min.js"></script>
 <script src="/js/watch.js"></script>
 </body>

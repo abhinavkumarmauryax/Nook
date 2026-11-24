@@ -50,6 +50,7 @@ function setIcon(el, name) {
 const mediaSourceModal = document.getElementById('mediaSourceModal');
 const emojiBtn = document.getElementById('emojiBtn');
 const emojiPicker = document.getElementById('emojiPicker');
+const gifToggleBtn = document.getElementById('gifToggleBtn');
 
 let myIsHost = false;
 let myRole = 'member';
@@ -58,6 +59,7 @@ let mySocketId = null;
 let myUsername = username;
 let mySessionToken = sessionStorage.getItem('nook_session_token') || '';
 let myOwnerToken = sessionStorage.getItem('nook_owner_token') || '';
+let gifsEnabled = true;
 let applying = false;
 // Set only when a local user actually pressed a control. Media events caused
 // by applying a remote state must never be broadcast back to the server.
@@ -111,67 +113,8 @@ function isNearBottom() {
   return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 100;
 }
 function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
-let lastChatMessage = null;
-function appendMessage(msg) {
-  const stick = isNearBottom();
-  const div = document.createElement('div');
-  div.className = 'message ' + msg.type;
-  if (msg.type === 'system') {
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = msg.text;
-    div.appendChild(bubble);
-    lastChatMessage = null;
-  } else {
-    const sender = lastUserList.find((u) => u.username === msg.username);
-    // Show the name/time once at the start of a run, until someone else speaks.
-    const grouped = !!(lastChatMessage && lastChatMessage.username === msg.username);
-    if (msg.username === myUsername) div.classList.add('me');
-    if (grouped) div.classList.add('grouped');
-    if (grouped) {
-      const spacer = document.createElement('span');
-      spacer.style.cssText = 'width:32px;flex:none';
-      div.appendChild(spacer);
-    } else {
-      div.appendChild(makeAvatar(sender || { username: msg.username, role: 'member' }));
-    }
-    const body = document.createElement('div');
-    body.className = 'message-body';
-    if (!grouped) {
-      const head = document.createElement('div');
-      head.className = 'message-head';
-      const name = document.createElement('span');
-      name.className = 'username';
-      name.textContent = msg.username;
-      const meta = document.createElement('span');
-      meta.className = 'meta';
-      meta.textContent = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      head.append(name, meta);
-      if (sender) {
-        const tag = document.createElement('span');
-        tag.className = 'role-tag role-tag-' + sender.role;
-        tag.textContent = roleLabel(sender.role);
-        head.appendChild(tag);
-      }
-      body.appendChild(head);
-    }
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = msg.text;
-    body.appendChild(bubble);
-    div.appendChild(body);
-    const actions = document.createElement('div');
-    actions.className = 'msg-actions';
-    const copy = document.createElement('button');
-    copy.textContent = 'Copy';
-    copy.addEventListener('click', () => navigator.clipboard && navigator.clipboard.writeText(msg.text));
-    actions.appendChild(copy);
-    div.appendChild(actions);
-    lastChatMessage = msg;
-  }
-  messagesEl.appendChild(div);
-  if (stick) scrollToBottom();
-}
+let chatUI = null;
+function appendMessage(msg) { if (chatUI) chatUI.append(msg); }
 
 // Permissions / participants ----------------------------------------------
 // Auto-hiding player controls ----------------------------------------------
@@ -229,9 +172,26 @@ function applyMyPermissions(data) {
   setIcon(railLeave, myIsHost ? 'stop' : 'leave');
   if (railLeave) railLeave.setAttribute('aria-label', myIsHost ? 'Stop server' : 'Leave session');
   setMutedState(!!data.muted);
+  applyGifsState(gifsEnabled);
   renderUsers(lastUserList);
   enforcePlayback();
 }
+function applyGifsState(enabled) {
+  gifsEnabled = enabled !== false;
+  if (chatUI) chatUI.setGifsEnabled(gifsEnabled);
+  if (gifToggleBtn) {
+    gifToggleBtn.style.display = myIsHost ? '' : 'none';
+    gifToggleBtn.classList.toggle('gif-disabled', !gifsEnabled);
+    gifToggleBtn.title = gifsEnabled ? 'Disable GIFs' : 'Enable GIFs';
+  }
+}
+if (gifToggleBtn) gifToggleBtn.addEventListener('click', () => {
+  socket.emit('host:gifs', { enabled: !gifsEnabled }, (resp) => {
+    if (!resp || !resp.ok) showToast((resp && resp.message) || 'Could not change GIF setting');
+    else showToast(resp.enabled ? 'GIFs enabled' : 'GIFs disabled');
+  });
+});
+
 function setMutedState(muted) {
   messageInput.disabled = !!muted;
   sendBtn.disabled = !!muted;
@@ -913,35 +873,20 @@ document.getElementById('localFileUse').addEventListener('click', async () => {
 sendBtn.addEventListener('click', () => {
   const text = messageInput.value.trim();
   if (!text) return;
-  socket.emit('chat:message', { text }, (resp) => {
+  let payload = { text };
+  try {
+    const u = new URL(text);
+    if (/^https?:$/.test(u.protocol) && /\.gif($|\?)/i.test(u.pathname)) {
+      payload = { kind: 'gif', url: u.toString(), alt: 'GIF' };
+    }
+  } catch {}
+  socket.emit('chat:message', payload, (resp) => {
     if (!resp || !resp.ok) return showToast((resp && resp.message) || 'Send failed');
     messageInput.value = '';
   });
 });
 messageInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); sendBtn.click(); }
-});
-
-// Emoji picker
-const EMOJIS = ['😀','😂','🥹','😍','🤔','👍','👎','🔥','✨','🎉','❤️','🙏','👀','🚀','💬','😎','🥳','😅','🤝','💡','🎬','🍿','😭','🙌','💪','⭐','👋','🤣','😴','🎧'];
-EMOJIS.forEach((em) => {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.textContent = em;
-  b.addEventListener('click', () => {
-    const start = messageInput.selectionStart ?? messageInput.value.length;
-    messageInput.value = messageInput.value.slice(0, start) + em + messageInput.value.slice(messageInput.selectionEnd ?? start);
-    messageInput.focus();
-    messageInput.setSelectionRange(start + em.length, start + em.length);
-  });
-  emojiPicker.appendChild(b);
-});
-emojiBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'grid' : 'none';
-});
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('#emojiPicker') && e.target !== emojiBtn) emojiPicker.style.display = 'none';
 });
 
 // Chat panel: hide/show and resize -----------------------------------------
@@ -1048,8 +993,8 @@ socket.on('joined', (resp) => {
   if (myOwnerToken) sessionStorage.setItem('nook_owner_token', myOwnerToken);
   else sessionStorage.removeItem('nook_owner_token');
   applyMyPermissions({ role: resp.role, isHost: resp.isHost, muted: (resp.users || []).find((u) => u.id === resp.userId)?.muted });
+  applyGifsState(resp.gifsEnabled);
   renderUsers(resp.users);
-  (resp.messages || []).forEach(appendMessage);
   scrollToBottom();
   applyPlaybackState(resp.playback);
   applyVideo(resp.video);
@@ -1066,6 +1011,10 @@ socket.on('users:updated', (data) => renderUsers(data.users));
 socket.on('user:joined', (data) => renderUsers(data.users));
 socket.on('user:left', (data) => renderUsers(data.users));
 socket.on('chat:message', (msg) => appendMessage(msg));
+socket.on('gifs:state', (data) => {
+  applyGifsState(data.enabled);
+  showToast(data.enabled ? 'GIFs enabled by the host' : 'GIFs disabled by the host');
+});
 
 socket.on('user:replaced', (data) => {
   showToast(data.message || 'This session was replaced by another tab.');
@@ -1146,6 +1095,17 @@ document.getElementById('chatPopoutBtn').addEventListener('click', () => {
 
 // init
 if (window.applyIcons) applyIcons();
+if (window.NookChatUI) {
+  chatUI = NookChatUI.setup({
+    messagesEl,
+    inputEl: messageInput,
+    getUser: (name) => lastUserList.find((u) => u.username === name),
+    myUsername,
+    getSessionToken: () => mySessionToken,
+    send: (payload, cb) => socket.emit('chat:message', payload, cb),
+    toast: showToast,
+  });
+}
 setControlsEnabled();
 updateRangeFills();
 scheduleControlsHide(); // start the idle countdown on load

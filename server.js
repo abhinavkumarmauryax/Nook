@@ -21,6 +21,7 @@ const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
 const { Server: IOServer } = require('socket.io');
+const gifProvider = require('./gif-provider');
 
 // -------------------- configuration --------------------
 const APP_ROOT = __dirname;
@@ -32,7 +33,9 @@ const BOOTSTRAP_PORT = parseInt(process.env.PORT || '3000', 10);
 const MAX_VIDEO_SIZE_GB = parseInt(process.env.MAX_VIDEO_SIZE_GB || '2', 10);
 const MAX_VIDEO_SIZE = MAX_VIDEO_SIZE_GB * 1024 * 1024 * 1024;
 const MAX_MESSAGE_LENGTH = 500;
-const MAX_CHAT_MESSAGES = 300;
+const MAX_GIF_URL_LENGTH = 600;
+const GIF_RATE_WINDOW_MS = 60000;
+const GIF_RATE_MAX = 12;
 const USERNAME_RE = /^[a-zA-Z0-9 _.\-]{2,32}$/;
 const ALLOWED_VIDEO_EXTS = ['.mp4', '.webm', '.ogg', '.mov', '.m4v'];
 const RATE_LIMIT_WINDOW_MS = 10000;
@@ -69,8 +72,11 @@ const users = new Map();
 const recentUsers = new Map(); // short-lived snapshots so a reconnect can restore role
 const mutedUsers = new Set();     // lowercase usernames, survives reconnect
 const kickedCooldown = new Map(); // lowercase username -> expiry timestamp
-const chatMessages = [];
 const msgTimes = new Map();
+const gifTimes = new Map();
+// Operational counters only - never message contents.
+const chatStats = { messages: 0, gifs: 0, rejected: 0 };
+let gifsEnabled = true;
 let pendingTransfer = null;      // { id, fromId, toId, expires }
 let ownerGraceTimer = null;      // short delay before auto-promoting a new owner
 let ownerGraceToken = null;
@@ -104,22 +110,18 @@ function computePlaybackTime() {
   return Math.max(0, playbackState.currentTime + elapsed);
 }
 
-function addChatMessage(username, text, type = 'chat') {
-  const msg = {
+// System notices are relayed live and never retained by the server.
+function emitSystem(text, exceptSocket) {
+  if (!sessionIo) return;
+  const target = exceptSocket ? exceptSocket.broadcast : sessionIo;
+  target.emit('chat:message', {
     id: crypto.randomUUID(),
-    username: type === 'system' ? '' : username,
+    username: '',
     text: String(text),
     timestamp: Date.now(),
-    type,
-  };
-  chatMessages.push(msg);
-  if (chatMessages.length > MAX_CHAT_MESSAGES) chatMessages.shift();
-  return msg;
-}
-
-function emitSystem(text) {
-  const msg = addChatMessage('system', text, 'system');
-  if (sessionIo) sessionIo.emit('chat:message', msg);
+    type: 'system',
+    kind: 'text',
+  });
 }
 
 function videoDescriptor() {
@@ -285,6 +287,23 @@ function isAuthorizedOwner(req) {
     !!(currentOwner && suppliedOwner && suppliedOwner === currentOwner.ownerToken);
 }
 
+// Direct GIF URLs only - no server-side fetching, proxying or caching.
+function validateGifUrl(raw) {
+  let url;
+  try { url = new URL(String(raw || '').trim()); } catch {
+    return { ok: false, error: 'Enter a valid GIF URL' };
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:')
+    return { ok: false, error: 'Only HTTP and HTTPS GIF URLs are supported' };
+  if (url.username || url.password)
+    return { ok: false, error: 'GIF URLs must not contain credentials' };
+  if (!/\.gif($|\?)/i.test(url.pathname))
+    return { ok: false, error: 'Only direct .gif media URLs are supported' };
+  if (url.toString().length > MAX_GIF_URL_LENGTH)
+    return { ok: false, error: 'GIF URL is too long' };
+  return { ok: true, url: url.toString() };
+}
+
 function activateVideo(descriptor, announceText) {
   const previousTemp = currentVideoTempPath;
   currentVideo = descriptor;
@@ -326,8 +345,9 @@ function stopSession() {
   recentUsers.clear();
   mutedUsers.clear();
   kickedCooldown.clear();
-  chatMessages.length = 0;
   msgTimes.clear();
+  gifTimes.clear();
+  gifsEnabled = true;
   pendingTransfer = null;
   if (ownerGraceTimer) { clearTimeout(ownerGraceTimer); ownerGraceTimer = null; }
   ownerGraceToken = null;
@@ -371,7 +391,26 @@ function startSessionServer(port) {
       port,
       homeDir: HOME_DIR,
       downloadsDir: path.join(HOME_DIR, 'Downloads'),
+      gifProvider: gifProvider.configured() ? gifProvider.provider : null,
+      gifsEnabled,
     }));
+
+    // GIF search: API key stays on the server; only search metadata is
+    // returned. No GIF media is fetched, proxied or stored here.
+    app.get('/api/gifs/search', async (req, res) => {
+      const token = String(req.query.token || '');
+      const user = token ? Array.from(users.values()).find((u) => u.sessionToken === token) : null;
+      if (!user) return res.status(401).json({ error: 'Join the session first' });
+      if (!gifsEnabled) return res.status(403).json({ error: 'GIFs are disabled by the host' });
+      if (!gifProvider.configured())
+        return res.status(501).json({ error: 'No GIF provider configured', configured: false });
+      try {
+        const data = await gifProvider.search(String(req.query.q || ''));
+        res.json({ configured: true, results: data.results });
+      } catch {
+        res.status(502).json({ error: 'GIF provider unavailable' });
+      }
+    });
 
     app.post('/api/session/stop', (req, res) => {
       if (!isAuthorizedOwner(req)) return res.status(401).json({ error: 'Owner authorization required' });
@@ -637,7 +676,7 @@ function startSessionServer(port) {
         socket.emit('joined', p);
         broadcastPlaybackState(io, socket);
         io.emit('user:joined', { username: trimmed, users: userListPayload() });
-        emitSystem(`${trimmed} joined the session`);
+        emitSystem(`${trimmed} joined the session`, socket);
         emitPermissions(io);
       });
 
@@ -651,7 +690,7 @@ function startSessionServer(port) {
           sessionToken: user.sessionToken,
           ownerToken: user.role === 'owner' ? user.ownerToken : null,
           users: userListPayload(),
-          messages: chatMessages.slice().reverse(),
+          gifsEnabled,
           videoKey: playbackState.videoKey,
           video: videoDescriptor(),
           playback: {
@@ -677,34 +716,78 @@ function startSessionServer(port) {
           role: user.role,
           muted: mutedUsers.has(user.username.toLowerCase()),
           users: userListPayload(),
-          messages: chatMessages.slice().reverse(),
+          gifsEnabled,
         };
         ack(cb, true, null, p);
         socket.emit('chat:ready', p);
       });
 
-      // ---- chat ----
+      // ---- chat: stateless live relay (no history, no storage) ----
       socket.on('chat:message', (data, cb) => {
         const user = getUserFromSocket(socket);
-        if (!user) return ack(cb, false, 'Not joined');
-        if (mutedUsers.has(user.username.toLowerCase()))
+        if (!user) { chatStats.rejected++; return ack(cb, false, 'Not joined'); }
+        if (mutedUsers.has(user.username.toLowerCase())) {
+          chatStats.rejected++;
           return ack(cb, false, 'You have been muted by the host');
-        const text = data && data.text;
-        if (!text || !String(text).trim()) return ack(cb, false, 'Message is empty');
-        const msg = String(text).trim();
-        if (msg.length > MAX_MESSAGE_LENGTH)
-          return ack(cb, false, `Message too long (max ${MAX_MESSAGE_LENGTH} characters)`);
+        }
 
+        const kind = data && data.kind === 'gif' ? 'gif' : 'text';
         const now = Date.now();
-        const times = (msgTimes.get(socket.id) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-        if (times.length >= RATE_LIMIT_MAX)
+        const bucket = kind === 'gif' ? gifTimes : msgTimes;
+        const windowMs = kind === 'gif' ? GIF_RATE_WINDOW_MS : RATE_LIMIT_WINDOW_MS;
+        const limit = kind === 'gif' ? GIF_RATE_MAX : RATE_LIMIT_MAX;
+        const times = (bucket.get(socket.id) || []).filter((t) => now - t < windowMs);
+        if (times.length >= limit) {
+          chatStats.rejected++;
+          console.log(`[chat] rate limit triggered for a connection (${kind})`);
           return ack(cb, false, 'Slow down! You are sending messages too quickly.');
-        times.push(now);
-        msgTimes.set(socket.id, times);
+        }
 
-        const out = addChatMessage(user.username, msg, 'chat');
+        let out;
+        if (kind === 'gif') {
+          if (!gifsEnabled) {
+            chatStats.rejected++;
+            return ack(cb, false, 'GIFs are disabled by the host');
+          }
+          const check = validateGifUrl(data && data.url);
+          if (!check.ok) { chatStats.rejected++; console.log('[chat] GIF URL validation failed'); return ack(cb, false, check.error); }
+          times.push(now); bucket.set(socket.id, times);
+          out = {
+            id: crypto.randomUUID(), username: user.username, text: '',
+            timestamp: now, type: 'chat', kind: 'gif', url: check.url,
+            staticUrl: typeof data.staticUrl === 'string' && data.staticUrl.startsWith('https://') ? data.staticUrl : null,
+            alt: typeof data.alt === 'string' ? data.alt.slice(0, 80) : 'GIF',
+          };
+          chatStats.gifs++;
+        } else {
+          const msg = String((data && data.text) || '').trim();
+          if (!msg) { chatStats.rejected++; return ack(cb, false, 'Message is empty'); }
+          if (msg.length > MAX_MESSAGE_LENGTH) {
+            chatStats.rejected++;
+            return ack(cb, false, `Message too long (max ${MAX_MESSAGE_LENGTH} characters)`);
+          }
+          times.push(now); bucket.set(socket.id, times);
+          out = {
+            id: crypto.randomUUID(), username: user.username, text: msg,
+            timestamp: now, type: 'chat', kind: 'text',
+          };
+          chatStats.messages++;
+        }
+
+        // Relay once to the active room, then drop all references.
         io.emit('chat:message', out);
-        ack(cb, true, null, { id: out.id });
+        out = null;
+        ack(cb, true, null, { id: null });
+      });
+
+      // ---- host setting: allow or block GIFs for the whole session ----
+      socket.on('host:gifs', (data, cb) => {
+        const user = getUserFromSocket(socket);
+        if (!isOwner(user)) return ack(cb, false, 'Only the owner can change GIF settings');
+        if (data && typeof data.enabled === 'boolean') gifsEnabled = data.enabled;
+        else gifsEnabled = !gifsEnabled;
+        io.emit('gifs:state', { enabled: gifsEnabled });
+        ack(cb, true, null, { enabled: gifsEnabled });
       });
 
       // ---- playback (owner only, enforced here) ----
@@ -975,6 +1058,8 @@ bootstrapApp.get('/api/status', (_req, res) => {
     downloadsDir: path.join(HOME_DIR, 'Downloads'),
     ips: getLocalIPv4Addresses(),
     participants: sessionIo ? sessionIo.engine.clientsCount : 0,
+    chatStats: { ...chatStats },
+    gifsEnabled,
     video: currentVideo ? { name: currentVideo.name, size: currentVideo.size, kind: currentVideo.kind } : null,
     error: sessionStartError,
   });
